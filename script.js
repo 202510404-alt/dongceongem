@@ -182,4 +182,4 @@ const playerImage = new Image(); const backgroundImage = new Image();
 playerImage.src = 'player.gif'; backgroundImage.src = 'background.png';
 let imagesLoaded = 0; const totalImages = 2;
 function onImageLoad() { imagesLoaded++; if (imagesLoaded === totalImages) { initModeSelection(); gameLoop(); } }
-playerImage.onload = onImageLoad; backgroundImage.onload = onImageLoad;
+playerImage.onload = onImageLoad; backgroundImage.onload = onImageLoad;    
