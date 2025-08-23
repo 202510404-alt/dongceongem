@@ -1,4 +1,38 @@
-html {
-  height: 100%;
-  width: 100%;
+/* 화면 전체의 여백을 없애고, 스크롤바가 생기지 않도록 설정 */
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* 스크롤바 숨기기 */
+  background-color: #111; /* 게임 바깥의 배경색 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh; /* 화면 전체 높이 사용 */
+}
+
+/* h1 제목은 이제 게임 화면 위에 겹쳐서 표시 (선택사항) */
+h1 {
+  position: absolute;
+  top: 10px;
+  color: white;
+  text-shadow: 2px 2px 4px black;
+  z-index: 10; /* 캔버스보다 위에 보이도록 */
+  display: none; /* 일단 숨기고, 필요하면 이 줄을 지우세요 */
+}
+
+/* !!! 여기가 수정된 부분: 캔버스 자동 크기 조절 !!! */
+canvas {
+  border: 2px solid black;
+
+  /* 
+   * 이 부분이 마법입니다.
+   * width를 100vw (화면 가로 너비의 100%)로 설정하고,
+   * height를 auto로 설정하면, 
+   * 캔버스는 원래의 800x600 비율을 유지하면서 화면에 꽉 차게 됩니다.
+   * max-height는 세로 모드 스마트폰 등에서 화면이 너무 길어지는 것을 방지합니다.
+   */
+  width: 100vw; 
+  height: auto;
+  max-height: 100vh;
+  object-fit: contain;
 }
