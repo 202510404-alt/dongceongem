@@ -9,6 +9,8 @@ const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
 let gameState = 'modeSelection';
 let controlMode = 'keyboard';
+
+let playerStats = { maxHp: 10 };
 let score = 10;
 let coins = 0;
 let upgradeLevels = { hp: 0, power: 0, ammo: 0 };
@@ -81,7 +83,7 @@ function drawMobileUI() { ctx.globalAlpha = 0.5; ctx.fillStyle = 'grey'; ctx.beg
 function handleMouseDown(e) { if (controlMode !== 'mobile') return; const fakeTouch = { clientX: e.clientX, clientY: e.clientY, identifier: 'mouse' }; const fakeEvent = { changedTouches: [fakeTouch], preventDefault: () => {} }; handleTouchStart(fakeEvent); }
 function handleMouseMove(e) { if (controlMode !== 'mobile') return; const fakeTouch = { clientX: e.clientX, clientY: e.clientY, identifier: 'mouse' }; const fakeEvent = { changedTouches: [fakeTouch], touches: [fakeTouch], preventDefault: () => {} }; handleTouchMove(fakeEvent); }
 function handleMouseUp(e) { if (controlMode !== 'mobile') return; const fakeTouch = { clientX: e.clientX, clientY: e.clientY, identifier: 'mouse' }; const fakeEvent = { changedTouches: [fakeTouch], preventDefault: () => {} }; handleTouchEnd(fakeEvent); }
-function handleTouchStart(e) { e.preventDefault(); const touches = e.changedTouches; if (gameState === 'modeSelection' || gameState === 'start' || gameState === 'gameOver' || gameState === 'upgradeScreen') { handleMouseClick({ clientX: touches[0].clientX, clientY: touches[0].clientY }); return; } if (controlMode !== 'mobile') return; for (let i = 0; i < touches.length; i++) { const touch = touches[i]; const { x, y } = getTouchCoordinates(touch); const distToAction = Math.hypot(x - actionButton.x, y - actionButton.y); if (distToAction < actionButton.radius && !actionButton.active) { actionButton.active = true; actionButton.pointerId = touch.identifier; inputState.action = true; inputState.actionHold = true; } const distToJoy = Math.hypot(x - joystick.x, y - joystick.y); if (distToJoy < joystick.radius && !joystick.active) { joystick.active = true; joystick.pointerId = touch.identifier; } } }
+function handleTouchStart(e) { e.preventDefault(); const touches = e.changedTouches; if (gameState === 'modeSelection' || gameState === 'start' || gameState === 'gameOver' || gameState === 'upgradeScreen' || gameState === 'choice') { handleMouseClick({ clientX: touches[0].clientX, clientY: touches[0].clientY }); return; } if (controlMode !== 'mobile') return; for (let i = 0; i < touches.length; i++) { const touch = touches[i]; const { x, y } = getTouchCoordinates(touch); const distToAction = Math.hypot(x - actionButton.x, y - actionButton.y); if (distToAction < actionButton.radius && !actionButton.active) { actionButton.active = true; actionButton.pointerId = touch.identifier; inputState.action = true; inputState.actionHold = true; } const distToJoy = Math.hypot(x - joystick.x, y - joystick.y); if (distToJoy < joystick.radius && !joystick.active) { joystick.active = true; joystick.pointerId = touch.identifier; } } }
 function handleTouchMove(e) { if (controlMode !== 'mobile') return; e.preventDefault(); for (let i = 0; i < e.touches.length; i++) { const touch = e.touches[i]; if (touch.identifier === joystick.pointerId) { const { x, y } = getTouchCoordinates(touch); const dx = x - joystick.x; const dy = y - joystick.y; const dist = Math.hypot(dx, dy); const angle = Math.atan2(dy, dx); const moveDist = Math.min(dist, joystick.radius - joystick.stickRadius); joystick.dx = Math.cos(angle) * moveDist; joystick.dy = Math.sin(angle) * moveDist; const threshold = joystick.radius * 0.2; inputState.right = joystick.dx > threshold; inputState.left = joystick.dx < -threshold; const verticalThreshold = joystick.radius * 0.4; let upNow = joystick.dy < -verticalThreshold; let downNow = joystick.dy > verticalThreshold; if (upNow && !inputState.upPressed) { inputState.up = true; } else { inputState.up = false; } inputState.upPressed = upNow; if (downNow && !inputState.downPressed) { inputState.down = true; } else { inputState.down = false; } inputState.downPressed = downNow; } } }
 function handleTouchEnd(e) { if (controlMode !== 'mobile') return; e.preventDefault(); for (let i = 0; i < e.changedTouches.length; i++) { const touch = e.changedTouches[i]; if (touch.identifier === actionButton.pointerId) { actionButton.active = false; actionButton.pointerId = null; inputState.action = false; inputState.actionHold = false; } if (touch.identifier === joystick.pointerId) { joystick.active = false; joystick.pointerId = null; joystick.dx = 0; joystick.dy = 0; inputState.up = false; inputState.down = false; inputState.left = false; inputState.right = false; inputState.upPressed = false; inputState.downPressed = false; } } }
 
@@ -92,10 +94,11 @@ const startMinigameButton = { x: canvas.width / 2 - 150, y: 200, width: 300, hei
 const startBossButton = { x: canvas.width / 2 - 150, y: 280, width: 300, height: 60 };
 const startUpgradeButton = { x: canvas.width / 2 - 150, y: 360, width: 300, height: 60 };
 const restartButton = { x: canvas.width / 2 - 125, y: canvas.height / 2 + 60, width: 250, height: 50 };
-const hpUpgradeButton = { x: 100, y: 200, width: 200, height: 150 };
-const powerUpgradeButton = { x: 350, y: 200, width: 200, height: 150 };
-const ammoUpgradeButton = { x: 600, y: 200, width: 200, height: 150 };
+const hpUpgradeButton = { x: 50, y: 200, width: 250, height: 200 };
+const powerUpgradeButton = { x: 325, y: 200, width: 250, height: 200 };
+const ammoUpgradeButton = { x: 600, y: 200, width: 250, height: 200 };
 const backButton = { x: canvas.width / 2 - 100, y: 450, width: 200, height: 50 };
+const feedbackButton = { x: canvas.width - 220, y: canvas.height - 70, width: 200, height: 50 };
 
 function initModeSelection() { gameState = 'modeSelection'; }
 function updateModeSelection() {}
@@ -110,6 +113,15 @@ function handleMouseClick(event) {
         if (x > startMinigameButton.x && x < startMinigameButton.x + startMinigameButton.width && y > startMinigameButton.y && y < startMinigameButton.y + startMinigameButton.height) { initMario(); }
         if (x > startBossButton.x && x < startBossButton.x + startBossButton.width && y > startBossButton.y && y < startBossButton.y + startBossButton.height) { boss_initBossFight(); }
         if (x > startUpgradeButton.x && x < startUpgradeButton.x + startUpgradeButton.width && y > startUpgradeButton.y && y < startUpgradeButton.y + startUpgradeButton.height) { initUpgradeScreen(); }
+        if (x > feedbackButton.x && x < feedbackButton.x + feedbackButton.width && y > feedbackButton.y && y < feedbackButton.y + feedbackButton.height) {
+            const feedbackText = prompt("피드백이나 버그 내용을 입력해주세요:");
+            if (feedbackText && feedbackText.trim() !== "") {
+                submitFeedback(feedbackText);
+            }
+        }
+    } else if (gameState === 'choice') {
+        if (y > 325 && y < 375) initSewerRun();
+        if (y > 375 && y < 425) initDroneShooter();
     } else if (gameState === 'upgradeScreen') {
         if (x > hpUpgradeButton.x && x < hpUpgradeButton.x + hpUpgradeButton.width && y > hpUpgradeButton.y && y < hpUpgradeButton.y + hpUpgradeButton.height) { purchaseUpgrade('hp'); }
         if (x > powerUpgradeButton.x && x < powerUpgradeButton.x + powerUpgradeButton.width && y > powerUpgradeButton.y && y < powerUpgradeButton.y + powerUpgradeButton.height) { purchaseUpgrade('power'); }
@@ -125,6 +137,7 @@ function handleMouseClick(event) {
 function initStartScreen(isRestart = false) {
     gameState = 'start';
     if (isRestart) {
+        playerStats = { maxHp: 10 };
         score = 10;
         coins = 0;
         upgradeLevels = { hp: 0, power: 0, ammo: 0 };
@@ -154,23 +167,40 @@ function drawStartScreen() {
     if (droneRankings.length > 0) { droneRankings.slice(0, 5).forEach((rank, i) => { ctx.fillText(`${i + 1}. ${rank} 점`, 300, 490 + i * 25); }); } else { ctx.fillText("랭킹 데이터 없음...", 300, 490); }
     ctx.fillText("--- 보스 클리어 타임 (Top 5) ---", 550, 460);
     if (bossRankings.length > 0) { bossRankings.slice(0, 5).forEach((rank, i) => { ctx.fillText(`${i + 1}. ${rank} 초`, 550, 490 + i * 25); }); } else { ctx.fillText("랭킹 데이터 없음...", 550, 490); }
+
+    ctx.fillStyle = '#888'; ctx.fillRect(feedbackButton.x, feedbackButton.y, feedbackButton.width, feedbackButton.height);
+    ctx.fillStyle = 'white'; ctx.font = '20px Arial';
     ctx.textAlign = 'center';
+    ctx.fillText("피드백 / 버그 신고", feedbackButton.x + feedbackButton.width / 2, feedbackButton.y + 32);
 }
 
 function updateChoice() { if (keys['1']) { initSewerRun(); } else if (keys['2']) { initDroneShooter(); } }
-function drawChoice() { ctx.fillStyle = 'black'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = 'white'; ctx.font = '30px Arial'; ctx.textAlign = 'center'; ctx.fillText(`수집한 미생물: ${score}개`, canvas.width / 2, 150); ctx.fillText("어떤 방법으로 정화하시겠습니까?", canvas.width / 2, 250); ctx.font = '24px Arial'; ctx.fillText("1. 하수구 직접 정화", canvas.width / 2, 350); ctx.fillText("2. 드론으로 강 정화", canvas.width / 2, 400); ctx.textAlign = 'left'; }
+function drawChoice() { ctx.fillStyle = 'black'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = 'white'; ctx.font = '30px Arial'; ctx.textAlign = 'center'; ctx.fillText(`보유 미생물: ${score}개`, canvas.width / 2, 150); ctx.fillText("어떤 방법으로 정화하시겠습니까?", canvas.width / 2, 250); ctx.font = '24px Arial'; ctx.fillText("1. 하수구 직접 정화", canvas.width / 2, 350); ctx.fillText("2. 드론으로 강 정화", canvas.width / 2, 400); ctx.textAlign = 'left'; }
 
 function updateGameOver() { if (keys['r']) { initStartScreen(); } }
 function drawGameOver() {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = 'white'; ctx.font = '50px Arial'; ctx.textAlign = 'center';
-    ctx.fillText(finalScoreType === 'boss' && finalScore > 0 ? "도전 성공!" : "도전 실패!", canvas.width / 2, canvas.height / 2 - 40);
+
+    let titleText = "";
+    if (finalScoreType === 'boss') {
+        titleText = (finalScore > 0) ? "보스 클리어!" : "게임 오버";
+    } else {
+        titleText = "미니게임 클리어!";
+    }
+    ctx.fillText(titleText, canvas.width / 2, canvas.height / 2 - 40);
+
     ctx.font = '24px Arial';
-    let scoreText = finalScoreType === 'boss' ? `클리어 타임: ${finalScore} 초` : `최종 점수: ${finalScore} 점`;
+    let scoreText = `최종 점수: ${finalScore} 점`;
+    if (finalScoreType === 'boss') scoreText = `클리어 타임: ${finalScore} 초`;
+
     if (finalScoreType === 'boss' && finalScore > 0) scoreText += ` (50 코인 획득!)`;
-    if (finalScoreType !== 'boss') scoreText += ` (${finalScore} 코인 획득!)`;
+    else if (finalScoreType !== 'boss') scoreText += ` (${finalScore} 코인 획득!)`;
+
     if (finalScoreType === 'boss' && finalScore === 0) scoreText = "HP가 모두 소진되었습니다.";
+
     ctx.fillText(scoreText, canvas.width / 2, canvas.height / 2 + 20);
+
     ctx.fillStyle = '#4CAF50'; ctx.fillRect(restartButton.x, restartButton.y, restartButton.width, restartButton.height);
     ctx.fillStyle = 'white'; ctx.font = '24px Arial';
     ctx.fillText("메인 화면으로", canvas.width / 2, restartButton.y + 32);
@@ -187,22 +217,36 @@ function drawUpgradeScreen() {
     ctx.fillText(`보유 코인: ${coins} G`, canvas.width / 2, 140);
 
     ctx.fillStyle = '#444'; ctx.fillRect(hpUpgradeButton.x, hpUpgradeButton.y, hpUpgradeButton.width, hpUpgradeButton.height);
-    ctx.fillStyle = 'white'; ctx.fillText("최대 HP", hpUpgradeButton.x + 100, hpUpgradeButton.y + 40);
-    ctx.fillText(`Lv. ${upgradeLevels.hp} / 5`, hpUpgradeButton.x + 100, hpUpgradeButton.y + 80);
+    ctx.fillStyle = 'white'; ctx.font = '22px Arial';
+    ctx.fillText("최대 HP", hpUpgradeButton.x + 125, hpUpgradeButton.y + 40);
+    ctx.font = '18px Arial';
+    ctx.fillText(`Lv. ${upgradeLevels.hp} / 5`, hpUpgradeButton.x + 125, hpUpgradeButton.y + 70);
+    ctx.fillText(`(현재: ${playerStats.maxHp})`, hpUpgradeButton.x + 125, hpUpgradeButton.y + 100);
     const hpCost = calculateUpgradeCost(upgradeLevels.hp);
-    ctx.fillText(hpCost === Infinity ? "MAX" : `비용: ${hpCost} G`, hpUpgradeButton.x + 100, hpUpgradeButton.y + 120);
+    ctx.font = '20px Arial';
+    ctx.fillText(hpCost === Infinity ? "MAX" : `비용: ${hpCost} G`, hpUpgradeButton.x + 125, hpUpgradeButton.y + 160);
 
     ctx.fillStyle = '#444'; ctx.fillRect(powerUpgradeButton.x, powerUpgradeButton.y, powerUpgradeButton.width, powerUpgradeButton.height);
-    ctx.fillStyle = 'white'; ctx.fillText("공격력", powerUpgradeButton.x + 100, powerUpgradeButton.y + 40);
-    ctx.fillText(`Lv. ${upgradeLevels.power} / 5`, powerUpgradeButton.x + 100, powerUpgradeButton.y + 80);
+    ctx.fillStyle = 'white'; ctx.font = '22px Arial';
+    ctx.fillText("공격력", powerUpgradeButton.x + 125, powerUpgradeButton.y + 40);
+    ctx.font = '18px Arial';
+    ctx.fillText(`Lv. ${upgradeLevels.power} / 5`, powerUpgradeButton.x + 125, powerUpgradeButton.y + 70);
+    const currentPower = 0.3 + (upgradeLevels.power * (5 / 7));
+    ctx.fillText(`(현재: ${currentPower.toFixed(2)})`, powerUpgradeButton.x + 125, powerUpgradeButton.y + 100);
     const powerCost = calculateUpgradeCost(upgradeLevels.power);
-    ctx.fillText(powerCost === Infinity ? "MAX" : `비용: ${powerCost} G`, powerUpgradeButton.x + 100, powerUpgradeButton.y + 120);
+    ctx.font = '20px Arial';
+    ctx.fillText(powerCost === Infinity ? "MAX" : `비용: ${powerCost} G`, powerUpgradeButton.x + 125, powerUpgradeButton.y + 160);
 
     ctx.fillStyle = '#444'; ctx.fillRect(ammoUpgradeButton.x, ammoUpgradeButton.y, ammoUpgradeButton.width, ammoUpgradeButton.height);
-    ctx.fillStyle = 'white'; ctx.fillText("탄약 보충량", ammoUpgradeButton.x + 100, ammoUpgradeButton.y + 40);
-    ctx.fillText(`Lv. ${upgradeLevels.ammo} / 5`, ammoUpgradeButton.x + 100, ammoUpgradeButton.y + 80);
+    ctx.fillStyle = 'white'; ctx.font = '22px Arial';
+    ctx.fillText("탄약 보충량", ammoUpgradeButton.x + 125, ammoUpgradeButton.y + 40);
+    ctx.font = '18px Arial';
+    ctx.fillText(`Lv. ${upgradeLevels.ammo} / 5`, ammoUpgradeButton.x + 125, ammoUpgradeButton.y + 70);
+    const currentAmmo = 5 + upgradeLevels.ammo;
+    ctx.fillText(`(현재: ${currentAmmo})`, ammoUpgradeButton.x + 125, ammoUpgradeButton.y + 100);
     const ammoCost = calculateUpgradeCost(upgradeLevels.ammo);
-    ctx.fillText(ammoCost === Infinity ? "MAX" : `비용: ${ammoCost} G`, ammoUpgradeButton.x + 100, ammoUpgradeButton.y + 120);
+    ctx.font = '20px Arial';
+    ctx.fillText(ammoCost === Infinity ? "MAX" : `비용: ${ammoCost} G`, ammoUpgradeButton.x + 125, ammoUpgradeButton.y + 160);
 
     ctx.fillStyle = '#f44336'; ctx.fillRect(backButton.x, backButton.y, backButton.width, backButton.height);
     ctx.fillStyle = 'white'; ctx.font = '30px Arial';
@@ -219,6 +263,9 @@ function purchaseUpgrade(type) {
     if (coins >= cost) {
         coins -= cost;
         upgradeLevels[type]++;
+        if (type === 'hp') {
+            playerStats.maxHp = 10 + (upgradeLevels.hp * 2);
+        }
     } else {
         console.log("코인이 부족합니다!");
     }
@@ -229,35 +276,61 @@ function purchaseUpgrade(type) {
 // =========================================================================
 let marioPlayer, goal, groundTiles, platforms, coins_mario; let backgroundX = 0; const MARIO_GRAVITY = 0.8;
 const MARIO_GOAL_TIME = 60;
+let marioCollected = 0;
 const MARIO_SCROLL_THRESHOLD = canvas.width / 2; const PLATFORM_MIN_GAP = 150, PLATFORM_MAX_GAP = 300; const COIN_SPAWN_CHANCE = 0.25; let particles;
-function initMario() { gameState = 'mario'; startTime = Date.now(); marioPlayer = { x: 50, y: 400, width: 50, height: 50, speed: 5, vy: 0, isJumping: true }; goal = { x: 0, y: 0, width: 20, height: 1000, isActive: false }; groundTiles = []; platforms = []; coins_mario = []; backgroundX = 0; particles = []; groundTiles.push({ x: 0, y: 550, width: canvas.width, height: 50 }); groundTiles.push({ x: canvas.width, y: 550, width: canvas.width, height: 50 }); let currentX = canvas.width / 2; for (let i = 0; i < 10; i++) { currentX = generateMarioObjects(currentX); } }
+function initMario() { gameState = 'mario'; marioCollected = 0; startTime = Date.now(); marioPlayer = { x: 50, y: 400, width: 50, height: 50, speed: 5, vy: 0, isJumping: true }; goal = { x: 0, y: 0, width: 20, height: 1000, isActive: false }; groundTiles = []; platforms = []; coins_mario = []; backgroundX = 0; particles = []; groundTiles.push({ x: 0, y: 550, width: canvas.width, height: 50 }); groundTiles.push({ x: canvas.width, y: 550, width: canvas.width, height: 50 }); let currentX = canvas.width / 2; for (let i = 0; i < 10; i++) { currentX = generateMarioObjects(currentX); } }
 function generateMarioObjects(currentX) { const gap = Math.random() * (PLATFORM_MAX_GAP - PLATFORM_MIN_GAP) + PLATFORM_MIN_GAP; const nextX = currentX + gap; if (Math.random() < 0.8) { const width1 = Math.random() * 70 + 80; platforms.push({ x: nextX, y: 430, width: width1, height: 15 }); if (Math.random() < COIN_SPAWN_CHANCE) { coins_mario.push({ x: nextX + width1 / 2 - 10, y: 400, width: 20, height: 20 }); } if (Math.random() < 0.5) { const width2 = Math.random() * 70 + 80; platforms.push({ x: nextX, y: 300, width: width2, height: 15 }); if (Math.random() < COIN_SPAWN_CHANCE) { coins_mario.push({ x: nextX + width2 / 2 - 10, y: 270, width: 20, height: 20 }); } } } return nextX; }
-function updateMario() { gameTime = (Date.now() - startTime) / 1000; let scrollSpeed = 0; if (inputState.right) { if (marioPlayer.x < MARIO_SCROLL_THRESHOLD) { marioPlayer.x += marioPlayer.speed; } else { scrollSpeed = marioPlayer.speed; } } if (inputState.left && marioPlayer.x > 0) { marioPlayer.x -= marioPlayer.speed; } if (scrollSpeed > 0) { backgroundX -= scrollSpeed * 0.3; if (backgroundX <= -canvas.width) { backgroundX = 0; } [...groundTiles, ...platforms, ...coins_mario, goal].forEach(obj => { obj.x -= scrollSpeed; }); } if (inputState.up && !marioPlayer.isJumping) { marioPlayer.vy = -18; } marioPlayer.vy += MARIO_GRAVITY; marioPlayer.y += marioPlayer.vy; let onSomething = false; groundTiles.forEach(tile => { if (marioPlayer.y + marioPlayer.height >= tile.y && marioPlayer.x < tile.x + tile.width && marioPlayer.x + marioPlayer.width > tile.x) { marioPlayer.y = tile.y - marioPlayer.height; marioPlayer.vy = 0; onSomething = true; } }); platforms.forEach(p => { if (marioPlayer.vy > 0 && marioPlayer.y + marioPlayer.height >= p.y && marioPlayer.y + marioPlayer.height - marioPlayer.vy <= p.y + 5 && marioPlayer.x < p.x + p.width && marioPlayer.x + marioPlayer.width > p.x) { marioPlayer.y = p.y - marioPlayer.height; marioPlayer.vy = 0; onSomething = true; } }); marioPlayer.isJumping = !onSomething; for (let i = coins_mario.length - 1; i >= 0; i--) { const c = coins_mario[i]; if (marioPlayer.x < c.x + c.width && marioPlayer.x + marioPlayer.width > c.x && marioPlayer.y < c.y + c.height && marioPlayer.y + marioPlayer.height > c.y) { score++; coins_mario.splice(i, 1); } } let rightmostX = 0; [...groundTiles, ...platforms].forEach(obj => { if (obj.x + obj.width > rightmostX) rightmostX = obj.x + obj.width; }); if (!goal.isActive && rightmostX < canvas.width * 2) { generateMarioObjects(rightmostX); } groundTiles.forEach((t, i) => { if (t.x + t.width < 0) { const other = i === 0 ? 1 : 0; t.x = groundTiles[other].x + groundTiles[other].width; } }); if (gameTime >= MARIO_GOAL_TIME && !goal.isActive) { goal.isActive = true; goal.x = rightmostX; } if (goal.isActive && marioPlayer.x + marioPlayer.width > goal.x) { gameState = 'choice'; } if (marioPlayer.y > canvas.height) { initStartScreen(); } }
-function drawMario() { ctx.drawImage(backgroundImage, backgroundX, 0, canvas.width, canvas.height); ctx.drawImage(backgroundImage, backgroundX + canvas.width, 0, canvas.width, canvas.height); ctx.fillStyle = 'green'; groundTiles.forEach(t => ctx.fillRect(t.x, t.y, t.width, t.height)); ctx.fillStyle = 'gold'; coins_mario.forEach(c => { ctx.beginPath(); ctx.arc(c.x + 10, c.y + 10, 10, 0, Math.PI * 2); ctx.fill(); }); ctx.fillStyle = 'saddlebrown'; platforms.forEach(p => ctx.fillRect(p.x, p.y, p.width, p.height)); ctx.drawImage(playerImage, marioPlayer.x, marioPlayer.y, marioPlayer.width, marioPlayer.height); ctx.fillStyle = 'black'; ctx.font = '20px Arial'; ctx.fillText(`Time: ${Math.floor(MARIO_GOAL_TIME - gameTime)}s`, 60, 30); ctx.fillText(`미생물: ${score}`, 60, 60); }
-let sewerPlayer, sewerTiles, sewerRunObjects; let sewerRunScore = 0; const LANE_Y_POSITIONS = [250, 350, 450, 550]; const SEWER_AUTO_SCROLL_SPEED = -3; let laneObstacleTimers = [];
-function initSewerRun() { gameState = 'sewerRun'; sewerRunScore = 0; sewerPlayer = { x: 100, width: 50, height: 50, speed: 5, currentLane: 1, y: LANE_Y_POSITIONS[1] }; sewerTiles = []; sewerRunObjects = []; laneObstacleTimers = []; const tileWidth = 200; const numTiles = Math.ceil(canvas.width / tileWidth) + 1; for (let i = 0; i < numTiles; i++) { sewerTiles.push({ x: i * tileWidth, y: 0 }); } for (let i = 0; i < 4; i++) { laneObstacleTimers.push(Math.random() * 120 + 60); } let currentX = canvas.width; for (let i = 0; i < 5; i++) { currentX = generateSewer(currentX); } }
+function updateMario() {
+    gameTime = (Date.now() - startTime) / 1000; let scrollSpeed = 0;
+    if (inputState.right) { if (marioPlayer.x < MARIO_SCROLL_THRESHOLD) { marioPlayer.x += marioPlayer.speed; } else { scrollSpeed = marioPlayer.speed; } }
+    if (inputState.left && marioPlayer.x > 0) { marioPlayer.x -= marioPlayer.speed; }
+    if (scrollSpeed > 0) { backgroundX -= scrollSpeed * 0.3; if (backgroundX <= -canvas.width) { backgroundX = 0; } [...groundTiles, ...platforms, ...coins_mario, goal].forEach(obj => { obj.x -= scrollSpeed; }); }
+    if (inputState.up && !marioPlayer.isJumping) { marioPlayer.vy = -18; }
+    marioPlayer.vy += MARIO_GRAVITY; marioPlayer.y += marioPlayer.vy;
+    let onSomething = false;
+    groundTiles.forEach(tile => { if (marioPlayer.y + marioPlayer.height >= tile.y && marioPlayer.x < tile.x + tile.width && marioPlayer.x + marioPlayer.width > tile.x) { marioPlayer.y = tile.y - marioPlayer.height; marioPlayer.vy = 0; onSomething = true; } });
+    platforms.forEach(p => { if (marioPlayer.vy > 0 && marioPlayer.y + marioPlayer.height >= p.y && marioPlayer.y + marioPlayer.height - marioPlayer.vy <= p.y + 5 && marioPlayer.x < p.x + p.width && marioPlayer.x + marioPlayer.width > p.x) { marioPlayer.y = p.y - marioPlayer.height; marioPlayer.vy = 0; onSomething = true; } });
+    marioPlayer.isJumping = !onSomething;
+    for (let i = coins_mario.length - 1; i >= 0; i--) { const c = coins_mario[i]; if (marioPlayer.x < c.x + c.width && marioPlayer.x + marioPlayer.width > c.x && marioPlayer.y < c.y + c.height && marioPlayer.y + marioPlayer.height > c.y) { marioCollected++; coins_mario.splice(i, 1); } }
+    let rightmostX = 0; [...groundTiles, ...platforms].forEach(obj => { if (obj.x + obj.width > rightmostX) rightmostX = obj.x + obj.width; }); if (!goal.isActive && rightmostX < canvas.width * 2) { generateMarioObjects(rightmostX); }
+    groundTiles.forEach((t, i) => { if (t.x + t.width < 0) { const other = i === 0 ? 1 : 0; t.x = groundTiles[other].x + groundTiles[other].width; } });
+    if (gameTime >= MARIO_GOAL_TIME && !goal.isActive) { goal.isActive = true; goal.x = rightmostX; }
+    if (goal.isActive && marioPlayer.x + marioPlayer.width > goal.x) { score += marioCollected; gameState = 'choice'; }
+    if (marioPlayer.y > canvas.height) { score += marioCollected; initStartScreen(); }
+}
+function drawMario() { ctx.drawImage(backgroundImage, backgroundX, 0, canvas.width, canvas.height); ctx.drawImage(backgroundImage, backgroundX + canvas.width, 0, canvas.width, canvas.height); ctx.fillStyle = 'green'; groundTiles.forEach(t => ctx.fillRect(t.x, t.y, t.width, t.height)); ctx.fillStyle = 'gold'; coins_mario.forEach(c => { ctx.beginPath(); ctx.arc(c.x + 10, c.y + 10, 10, 0, Math.PI * 2); ctx.fill(); }); ctx.fillStyle = 'saddlebrown'; platforms.forEach(p => ctx.fillRect(p.x, p.y, p.width, p.height)); ctx.drawImage(playerImage, marioPlayer.x, marioPlayer.y, marioPlayer.width, marioPlayer.height); ctx.fillStyle = 'black'; ctx.font = '20px Arial'; ctx.fillText(`Time: ${Math.floor(MARIO_GOAL_TIME - gameTime)}s`, 60, 30); ctx.fillText(`수집: ${marioCollected}`, 60, 60); }
+let sewerPlayer, sewerTiles, sewerRunObjects; let sewerRunScore = 0; let currentMicrobes = 0; const LANE_Y_POSITIONS = [250, 350, 450, 550]; const SEWER_AUTO_SCROLL_SPEED = -3; let laneObstacleTimers = [];
+function initSewerRun() { gameState = 'sewerRun'; sewerRunScore = 0; currentMicrobes = score; sewerPlayer = { x: 100, width: 50, height: 50, speed: 5, currentLane: 1, y: LANE_Y_POSITIONS[1] }; sewerTiles = []; sewerRunObjects = []; laneObstacleTimers = []; const tileWidth = 200; const numTiles = Math.ceil(canvas.width / tileWidth) + 1; for (let i = 0; i < numTiles; i++) { sewerTiles.push({ x: i * tileWidth, y: 0 }); } for (let i = 0; i < 4; i++) { laneObstacleTimers.push(Math.random() * 120 + 60); } let currentX = canvas.width; for (let i = 0; i < 5; i++) { currentX = generateSewer(currentX); } }
 function generateSewer(currentX) { const gap = Math.random() * 400 + 300; const nextX = currentX + gap; const laneIndex = Math.floor(Math.random() * 4); if (Math.random() < 0.5) { sewerRunObjects.push({ type: 'sewer', x: nextX, y: LANE_Y_POSITIONS[laneIndex] + 5, radius: 20, isCleaned: false, lane: laneIndex }); } return nextX; }
-function updateSewerRun() { if (score <= 0) { finalScoreType = 'sewer'; finalScore = sewerRunScore; coins += sewerRunScore; submitScore(finalScoreType, finalScore); gameState = 'gameOver'; return; } laneObstacleTimers.forEach((timer, i) => { laneObstacleTimers[i]--; if (laneObstacleTimers[i] <= 0) { if (Math.random() < 0.3) { sewerRunObjects.push({ type: 'obstacle', x: canvas.width + 50, y: LANE_Y_POSITIONS[i], width: 40, height: 40, lane: i }); } laneObstacleTimers[i] = Math.random() * 120 + 60; } }); let playerScrollSpeed = 0; if (inputState.left) { playerScrollSpeed = sewerPlayer.speed; } if (inputState.right) { playerScrollSpeed = -sewerPlayer.speed; } sewerTiles.forEach(tile => { tile.x += playerScrollSpeed; }); sewerRunObjects.forEach(obj => { if (obj.type === 'obstacle') { obj.x += SEWER_AUTO_SCROLL_SPEED + playerScrollSpeed; } else if (obj.type === 'sewer') { obj.x += playerScrollSpeed; } }); sewerTiles.forEach(tile => { if (tile.x < -200) { tile.x += sewerTiles.length * 200; } else if (tile.x > canvas.width) { tile.x -= sewerTiles.length * 200; } }); if (inputState.up) { if (sewerPlayer.currentLane > 0) sewerPlayer.currentLane--; } if (inputState.down) { if (sewerPlayer.currentLane < LANE_Y_POSITIONS.length - 1) sewerPlayer.currentLane++; } sewerPlayer.y = LANE_Y_POSITIONS[sewerPlayer.currentLane]; for (let i = sewerRunObjects.length - 1; i >= 0; i--) { const obj = sewerRunObjects[i]; if (obj.x < -100) { sewerRunObjects.splice(i, 1); continue; } if (obj.lane !== sewerPlayer.currentLane) continue; const playerBox = { x: sewerPlayer.x, y: sewerPlayer.y, width: sewerPlayer.width, height: sewerPlayer.height }; if (obj.type === 'obstacle') { const obstacleBox = { x: obj.x, y: obj.y, width: obj.width, height: obj.height }; if (playerBox.x < obstacleBox.x + obstacleBox.width && playerBox.x + playerBox.width > obstacleBox.x && playerBox.y < obstacleBox.y + obstacleBox.height && playerBox.y + playerBox.height > obstacleBox.y) { score--; sewerRunObjects.splice(i, 1); } } else if (obj.type === 'sewer') { if (inputState.action && !obj.isCleaned && Math.abs((sewerPlayer.x + sewerPlayer.width / 2) - obj.x) < 40) { if (score > 0) { score--; obj.isCleaned = true; sewerRunScore++; } } } } let rightmostSewerX = 0; sewerRunObjects.forEach(obj => { if (obj.type === 'sewer' && obj.x > rightmostSewerX) rightmostSewerX = obj.x; }); if (rightmostSewerX < canvas.width + 400) { generateSewer(rightmostSewerX); } }
-function drawSewerRun() { ctx.fillStyle = '#333333'; ctx.fillRect(0, 0, canvas.width, canvas.height); sewerTiles.forEach(tile => { ctx.fillStyle = '#424242'; ctx.fillRect(tile.x, 250, 200, 400); ctx.strokeStyle = '#333333'; ctx.lineWidth = 2; for (let i = 0; i < 10; i++) { ctx.beginPath(); ctx.moveTo(tile.x + i * 20, 250); ctx.lineTo(tile.x + i * 20, canvas.height); ctx.stroke(); } for (let i = 0; i < 20; i++) { ctx.beginPath(); ctx.moveTo(tile.x, 250 + i * 20); ctx.lineTo(tile.x + 200, 250 + i * 20); ctx.stroke(); } }); ctx.strokeStyle = '#212121'; ctx.lineWidth = 4; LANE_Y_POSITIONS.forEach((yPos, i) => { if (i < 3) { const lineY = yPos + 75; ctx.beginPath(); ctx.moveTo(0, lineY); ctx.lineTo(canvas.width, lineY); ctx.stroke(); } }); sewerRunObjects.forEach(obj => { if (obj.type === 'obstacle') { ctx.fillStyle = 'red'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); } else if (obj.type === 'sewer') { ctx.fillStyle = obj.isCleaned ? 'deepskyblue' : 'black'; ctx.beginPath(); ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2); ctx.fill(); } }); ctx.drawImage(playerImage, sewerPlayer.x, sewerPlayer.y, sewerPlayer.width, sewerPlayer.height); ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.fillText(`미생물: ${score}`, 60, 30); ctx.fillText(`정화: ${sewerRunScore}`, 60, 60); }
+function updateSewerRun() { if (currentMicrobes <= 0) { finalScoreType = 'sewer'; finalScore = sewerRunScore; coins += sewerRunScore; submitScore(finalScoreType, finalScore); gameState = 'gameOver'; return; } laneObstacleTimers.forEach((timer, i) => { laneObstacleTimers[i]--; if (laneObstacleTimers[i] <= 0) { if (Math.random() < 0.3) { sewerRunObjects.push({ type: 'obstacle', x: canvas.width + 50, y: LANE_Y_POSITIONS[i], width: 40, height: 40, lane: i }); } laneObstacleTimers[i] = Math.random() * 120 + 60; } }); let playerScrollSpeed = 0; if (inputState.left) { playerScrollSpeed = sewerPlayer.speed; } if (inputState.right) { playerScrollSpeed = -sewerPlayer.speed; } sewerTiles.forEach(tile => { tile.x += playerScrollSpeed; }); sewerRunObjects.forEach(obj => { if (obj.type === 'obstacle') { obj.x += SEWER_AUTO_SCROLL_SPEED + playerScrollSpeed; } else if (obj.type === 'sewer') { obj.x += playerScrollSpeed; } }); sewerTiles.forEach(tile => { if (tile.x < -200) { tile.x += sewerTiles.length * 200; } else if (tile.x > canvas.width) { tile.x -= sewerTiles.length * 200; } }); if (inputState.up) { if (sewerPlayer.currentLane > 0) sewerPlayer.currentLane--; } if (inputState.down) { if (sewerPlayer.currentLane < LANE_Y_POSITIONS.length - 1) sewerPlayer.currentLane++; } sewerPlayer.y = LANE_Y_POSITIONS[sewerPlayer.currentLane]; for (let i = sewerRunObjects.length - 1; i >= 0; i--) { const obj = sewerRunObjects[i]; if (obj.x < -100) { sewerRunObjects.splice(i, 1); continue; } if (obj.lane !== sewerPlayer.currentLane) continue; const playerBox = { x: sewerPlayer.x, y: sewerPlayer.y, width: sewerPlayer.width, height: sewerPlayer.height }; if (obj.type === 'obstacle') { const obstacleBox = { x: obj.x, y: obj.y, width: obj.width, height: obj.height }; if (playerBox.x < obstacleBox.x + obstacleBox.width && playerBox.x + playerBox.width > obstacleBox.x && playerBox.y < obstacleBox.y + obstacleBox.height && playerBox.y + playerBox.height > obstacleBox.y) { currentMicrobes--; sewerRunObjects.splice(i, 1); } } else if (obj.type === 'sewer') { if (inputState.action && !obj.isCleaned && Math.abs((sewerPlayer.x + sewerPlayer.width / 2) - obj.x) < 40) { if (currentMicrobes > 0) { currentMicrobes--; obj.isCleaned = true; sewerRunScore++; } } } } let rightmostSewerX = 0; sewerRunObjects.forEach(obj => { if (obj.type === 'sewer' && obj.x > rightmostSewerX) rightmostSewerX = obj.x; }); if (rightmostSewerX < canvas.width + 400) { generateSewer(rightmostSewerX); } }
+function drawSewerRun() { ctx.fillStyle = '#333333'; ctx.fillRect(0, 0, canvas.width, canvas.height); sewerTiles.forEach(tile => { ctx.fillStyle = '#424242'; ctx.fillRect(tile.x, 250, 200, 400); ctx.strokeStyle = '#333333'; ctx.lineWidth = 2; for (let i = 0; i < 10; i++) { ctx.beginPath(); ctx.moveTo(tile.x + i * 20, 250); ctx.lineTo(tile.x + i * 20, canvas.height); ctx.stroke(); } for (let i = 0; i < 20; i++) { ctx.beginPath(); ctx.moveTo(tile.x, 250 + i * 20); ctx.lineTo(tile.x + 200, 250 + i * 20); ctx.stroke(); } }); ctx.strokeStyle = '#212121'; ctx.lineWidth = 4; LANE_Y_POSITIONS.forEach((yPos, i) => { if (i < 3) { const lineY = yPos + 75; ctx.beginPath(); ctx.moveTo(0, lineY); ctx.lineTo(canvas.width, lineY); ctx.stroke(); } }); sewerRunObjects.forEach(obj => { if (obj.type === 'obstacle') { ctx.fillStyle = 'red'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); } else if (obj.type === 'sewer') { ctx.fillStyle = obj.isCleaned ? 'deepskyblue' : 'black'; ctx.beginPath(); ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2); ctx.fill(); } }); ctx.drawImage(playerImage, sewerPlayer.x, sewerPlayer.y, sewerPlayer.width, sewerPlayer.height); ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.fillText(`미생물: ${currentMicrobes}`, 60, 30); ctx.fillText(`정화: ${sewerRunScore}`, 60, 60); }
 let droneShooterPlayer, bullets, pollutants; let droneShooterScore = 0; let shootCooldown = 0; let pollutantSpawnTimer = 0; const RIVER_MARGIN_MINIGAME = 150;
-function initDroneShooter() { gameState = 'droneShooter'; droneShooterScore = 0; droneShooterPlayer = { x: canvas.width / 2 - 25, y: canvas.height - 80, width: 50, height: 50, speed: 6 }; bullets = []; pollutants = []; shootCooldown = 0; pollutantSpawnTimer = 60; }
-function updateDroneShooter() { if (score < 0.1) { finalScoreType = 'drone'; finalScore = droneShooterScore; coins += droneShooterScore; submitScore(finalScoreType, finalScore); gameState = 'gameOver'; return; } shootCooldown--; pollutantSpawnTimer--; if (inputState.left) { droneShooterPlayer.x -= droneShooterPlayer.speed; } if (inputState.right) { droneShooterPlayer.x += droneShooterPlayer.speed; } if (droneShooterPlayer.x < RIVER_MARGIN_MINIGAME) droneShooterPlayer.x = RIVER_MARGIN_MINIGAME; if (droneShooterPlayer.x + droneShooterPlayer.width > canvas.width - RIVER_MARGIN_MINIGAME) droneShooterPlayer.x = canvas.width - RIVER_MARGIN_MINIGAME - droneShooterPlayer.width; if (inputState.actionHold && score >= 0.1 && shootCooldown <= 0) { score -= 0.1; bullets.push({ x: droneShooterPlayer.x + droneShooterPlayer.width / 2 - 5, y: droneShooterPlayer.y, width: 10, height: 20, speed: 8 }); shootCooldown = 12; } for (let i = bullets.length - 1; i >= 0; i--) { bullets[i].y -= bullets[i].speed; if (bullets[i].y < 0) bullets.splice(i, 1); } if (pollutantSpawnTimer <= 0) { pollutants.push({ x: Math.random() * (canvas.width - RIVER_MARGIN_MINIGAME * 2 - 40) + RIVER_MARGIN_MINIGAME, y: -50, width: 40, height: 40, speedY: Math.random() * 1 + 1, hp: Math.floor(Math.random() * 3) + 1, maxHp: 3 }); pollutantSpawnTimer = Math.random() * 90 + 30; } for (let i = pollutants.length - 1; i >= 0; i--) { const p = pollutants[i]; p.y += p.speedY; if (p.y > canvas.height) { pollutants.splice(i, 1); continue; } for (let j = bullets.length - 1; j >= 0; j--) { const b = bullets[j]; if (b.x < p.x + p.width && b.x + b.width > p.x && b.y < p.y + p.height && b.y + b.height > p.y) { bullets.splice(j, 1); p.hp -= 0.5; if (p.hp <= 0) { pollutants.splice(i, 1); droneShooterScore++; break; } } } } }
-function drawDroneShooter() { ctx.fillStyle = '#616161'; ctx.fillRect(0, 0, RIVER_MARGIN_MINIGAME, canvas.height); ctx.fillRect(canvas.width - RIVER_MARGIN_MINIGAME, 0, RIVER_MARGIN_MINIGAME, canvas.height); ctx.fillStyle = '#1a237e'; ctx.fillRect(RIVER_MARGIN_MINIGAME, 0, canvas.width - RIVER_MARGIN_MINIGAME * 2, canvas.height); ctx.fillStyle = 'deepskyblue'; bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x + 5, b.y + 10, 5, 0, Math.PI * 2); ctx.fill(); }); pollutants.forEach(p => { const colorValue = Math.floor(150 * (1 - p.hp / p.maxHp)); ctx.fillStyle = `rgb(${colorValue}, ${colorValue}, ${colorValue})`; ctx.beginPath(); ctx.arc(p.x + p.width / 2, p.y + p.height / 2, p.width / 2, 0, Math.PI * 2); ctx.fill(); }); ctx.drawImage(playerImage, droneShooterPlayer.x, droneShooterPlayer.y, droneShooterPlayer.width, droneShooterPlayer.height); ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.fillText(`미생물: ${score.toFixed(1)}`, 60, 30); ctx.fillText(`정화: ${droneShooterScore}`, 60, 60); }
+function initDroneShooter() { gameState = 'droneShooter'; droneShooterScore = 0; currentMicrobes = score; droneShooterPlayer = { x: canvas.width / 2 - 25, y: canvas.height - 80, width: 50, height: 50, speed: 6 }; bullets = []; pollutants = []; shootCooldown = 0; pollutantSpawnTimer = 60; }
+function updateDroneShooter() {
+    if (currentMicrobes < 0.1) { finalScoreType = 'drone'; finalScore = droneShooterScore; coins += droneShooterScore; submitScore(finalScoreType, finalScore); gameState = 'gameOver'; return; }
+    shootCooldown--; pollutantSpawnTimer--;
+    if (inputState.left) { droneShooterPlayer.x -= droneShooterPlayer.speed; }
+    if (inputState.right) { droneShooterPlayer.x += droneShooterPlayer.speed; }
+    if (droneShooterPlayer.x < RIVER_MARGIN_MINIGAME) droneShooterPlayer.x = RIVER_MARGIN_MINIGAME;
+    if (droneShooterPlayer.x + droneShooterPlayer.width > canvas.width - RIVER_MARGIN_MINIGAME) droneShooterPlayer.x = canvas.width - RIVER_MARGIN_MINIGAME - droneShooterPlayer.width;
+
+    if (currentMicrobes >= 0.1 && shootCooldown <= 0) {
+        currentMicrobes -= 0.1;
+        bullets.push({ x: droneShooterPlayer.x + droneShooterPlayer.width / 2 - 5, y: droneShooterPlayer.y, width: 10, height: 20, speed: 8 });
+        shootCooldown = 6;
+    }
+
+    for (let i = bullets.length - 1; i >= 0; i--) { bullets[i].y -= bullets[i].speed; if (bullets[i].y < 0) bullets.splice(i, 1); }
+    if (pollutantSpawnTimer <= 0) { pollutants.push({ x: Math.random() * (canvas.width - RIVER_MARGIN_MINIGAME * 2 - 40) + RIVER_MARGIN_MINIGAME, y: -50, width: 40, height: 40, speedY: Math.random() * 1 + 1, hp: Math.floor(Math.random() * 3) + 1, maxHp: 3 }); pollutantSpawnTimer = Math.random() * 90 + 30; }
+    for (let i = pollutants.length - 1; i >= 0; i--) { const p = pollutants[i]; p.y += p.speedY; if (p.y > canvas.height) { pollutants.splice(i, 1); continue; } for (let j = bullets.length - 1; j >= 0; j--) { const b = bullets[j]; if (b.x < p.x + p.width && b.x + b.width > p.x && b.y < p.y + p.height && b.y + b.height > p.y) { bullets.splice(j, 1); p.hp -= 0.5; if (p.hp <= 0) { pollutants.splice(i, 1); droneShooterScore++; break; } } } }
+}
+function drawDroneShooter() { ctx.fillStyle = '#616161'; ctx.fillRect(0, 0, RIVER_MARGIN_MINIGAME, canvas.height); ctx.fillRect(canvas.width - RIVER_MARGIN_MINIGAME, 0, RIVER_MARGIN_MINIGAME, canvas.height); ctx.fillStyle = '#1a237e'; ctx.fillRect(RIVER_MARGIN_MINIGAME, 0, canvas.width - RIVER_MARGIN_MINIGAME * 2, canvas.height); ctx.fillStyle = 'deepskyblue'; bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x + 5, b.y + 10, 5, 0, Math.PI * 2); ctx.fill(); }); pollutants.forEach(p => { const colorValue = Math.floor(150 * (1 - p.hp / p.maxHp)); ctx.fillStyle = `rgb(${colorValue}, ${colorValue}, ${colorValue})`; ctx.beginPath(); ctx.arc(p.x + p.width / 2, p.y + p.height / 2, p.width / 2, 0, Math.PI * 2); ctx.fill(); }); ctx.drawImage(playerImage, droneShooterPlayer.x, droneShooterPlayer.y, droneShooterPlayer.width, droneShooterPlayer.height); ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.fillText(`미생물: ${currentMicrobes.toFixed(1)}`, 60, 30); ctx.fillText(`정화: ${droneShooterScore}`, 60, 60); }
 
 // =========================================================================
 // 6. 보스전 파트
 // =========================================================================
 let boss_boss, boss_player, boss_bullets, boss_ammoItems, boss_bossAttacks, boss_sideAttacks, boss_waterSplash; let boss_bossFightState = 'playerTurn'; let boss_turnTimer = 0; let boss_playerHp = 0; let boss_maxHp = 10; let boss_ammo = 0; let boss_playerAttackPower = 0.3; let boss_shootCooldown = 0, boss_ammoSpawnTimer = 0, boss_bossAttackTimer = 0, boss_sideAttackTimer = 0, boss_tsunamiTimer = 0; let boss_areaAttackState = 'none', boss_areaAttackTimer = 0; let boss_bossMario_ground = [], boss_bossMario_platforms = []; let boss_bossSewer_lanes = [250, 350, 450, 550]; let boss_laneSwitchCooldown = 0; let boss_startTime; const BOSS_JUMP_HEIGHT = 220; const BOSS_JUMP_DURATION = 120; const BOSS_MARIO_GRAVITY = 0.8;
-function boss_initBossFight() {
-    gameState = 'bossFight'; boss_bossFightState = 'playerTurn'; boss_startTime = Date.now();
-    boss_maxHp = score + (upgradeLevels.hp * 2);
-    boss_playerAttackPower = 0.3 + (upgradeLevels.power * (5 / 7));
-    boss_playerHp = boss_maxHp; boss_ammo = 10;
-    boss_boss = { x: canvas.width / 2 - 100, y: 100, width: 200, height: 80, hp: 2500, maxHp: 2500, vx: 0, vy: 0, targetX: 0, startX: 0, startY: 0, jumpProgress: 0, isJumping: false };
-    boss_player = { x: canvas.width / 2 - 25, y: canvas.height - 80, width: 50, height: 50, speed: 6, vy: 0, isJumping: true, currentLane: 1 };
-    boss_bullets = []; boss_ammoItems = []; boss_bossAttacks = []; boss_sideAttacks = []; boss_waterSplash = [];
-    boss_shootCooldown = 0; boss_ammoSpawnTimer = 120; boss_turnTimer = 600;
-}
+function boss_initBossFight() { gameState = 'bossFight'; boss_bossFightState = 'playerTurn'; boss_startTime = Date.now(); boss_maxHp = playerStats.maxHp; boss_playerAttackPower = 0.3 + (upgradeLevels.power * (5 / 7)); boss_playerHp = boss_maxHp; boss_ammo = 10; boss_boss = { x: canvas.width / 2 - 100, y: 100, width: 200, height: 80, hp: 2500, maxHp: 2500, vx: 0, vy: 0, targetX: 0, startX: 0, startY: 0, jumpProgress: 0, isJumping: false }; boss_player = { x: canvas.width / 2 - 25, y: canvas.height - 80, width: 50, height: 50, speed: 6, vy: 0, isJumping: true, currentLane: 1 }; boss_bullets = []; boss_ammoItems = []; boss_bossAttacks = []; boss_sideAttacks = []; boss_waterSplash = []; boss_shootCooldown = 0; boss_ammoSpawnTimer = 120; boss_turnTimer = 600; }
 function boss_updateBossFight() { if (boss_playerHp <= 0) { finalScore = 0; finalScoreType = 'boss'; gameState = 'gameOver'; return; } if (boss_boss.hp <= 0) { const clearTime = ((Date.now() - boss_startTime) / 1000).toFixed(2); finalScore = parseFloat(clearTime); finalScoreType = 'boss'; coins += 50; submitScore(finalScoreType, finalScore); gameState = 'gameOver'; return; } boss_turnTimer--; if (boss_turnTimer <= 0) { const previousState = boss_bossFightState; if (boss_bossFightState === 'playerTurn') { boss_bossFightState = 'bossTurn'; boss_turnTimer = 1200; const rand = Math.random(); if (rand < 0.33) { boss_initBossAutoAimPattern(); } else if (rand < 0.66) { boss_initBossMarioPattern(); } else { boss_initBossSewerPattern(); } } else { boss_bossFightState = 'playerTurn'; boss_turnTimer = 600; boss_bossAttacks = []; if (previousState !== 'bossTurn_autoAim') { boss_player.x = canvas.width / 2 - 25; boss_player.y = canvas.height - 80; } boss_boss.x = canvas.width / 2 - 100; boss_boss.y = 100; } } boss_updateSharedBossMechanics(); if (boss_bossFightState === 'bossTurn_autoAim') { boss_updateBossAutoAimPattern(); } else if (boss_bossFightState === 'bossTurn_mario') { boss_updateBossMarioPattern(); } else if (boss_bossFightState === 'bossTurn_sewer') { boss_updateBossSewerPattern(); } }
 function boss_updateSharedBossMechanics() { if (boss_bossFightState === 'bossTurn_mario') { if (inputState.up && !boss_player.isJumping) { boss_player.vy = -22; } if (inputState.right) { boss_player.x += boss_player.speed; } if (inputState.left) { boss_player.x -= boss_player.speed; } if (boss_player.x < 0) boss_player.x = 0; if (boss_player.x + boss_player.width > canvas.width) boss_player.x = canvas.width - boss_player.width; boss_player.vy += BOSS_MARIO_GRAVITY; boss_player.y += boss_player.vy; let onSomething = false; [...boss_bossMario_ground, ...boss_bossMario_platforms].forEach(g => { if (boss_player.vy > 0 && boss_player.y + boss_player.height >= g.y && boss_player.y + boss_player.height - boss_player.vy <= g.y + 5 && boss_player.x < g.x + g.width && boss_player.x + boss_player.width > g.x) { boss_player.y = g.y - boss_player.height; boss_player.vy = 0; onSomething = true; } }); boss_player.isJumping = !onSomething; } else if (boss_bossFightState === 'bossTurn_sewer') { boss_laneSwitchCooldown--; if (inputState.up && boss_laneSwitchCooldown <= 0) { if (boss_player.currentLane > 0) { boss_player.currentLane--; boss_laneSwitchCooldown = 12; } } if (inputState.down && boss_laneSwitchCooldown <= 0) { if (boss_player.currentLane < 3) { boss_player.currentLane++; boss_laneSwitchCooldown = 12; } } if (inputState.left) { boss_player.x -= boss_player.speed; } if (inputState.right) { boss_player.x += boss_player.speed; } if (boss_player.x < 0) boss_player.x = 0; if (boss_player.x + boss_player.width > canvas.width) boss_player.x = canvas.width - boss_player.width; boss_player.y = boss_bossSewer_lanes[boss_player.currentLane]; } else { if (inputState.left) { boss_player.x -= boss_player.speed; } if (inputState.right) { boss_player.x += boss_player.speed; } if (inputState.upPressed) { boss_player.y -= boss_player.speed; } if (inputState.downPressed) { boss_player.y += boss_player.speed; } if (boss_player.x < 0) boss_player.x = 0; if (boss_player.x + boss_player.width > canvas.width) boss_player.x = canvas.width - boss_player.width; if (boss_player.y < 0) boss_player.y = 0; if (boss_player.y + boss_player.height > canvas.height) boss_player.y = canvas.height - boss_player.height; } boss_shootCooldown--; if (boss_bossFightState === 'bossTurn_mario') { if (inputState.action && boss_ammo > 0 && boss_shootCooldown <= 0) { boss_ammo--; for (let i = 0; i < 20; i++) { boss_waterSplash.push({ x: boss_player.x + 25, y: boss_player.y + 25, radius: Math.random() * 2 + 2, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 5 - 3, lifespan: 60 }); } boss_shootCooldown = 6; } } else if (boss_bossFightState !== 'bossTurn_sewer') { if (inputState.actionHold && boss_ammo > 0 && boss_shootCooldown <= 0) { boss_ammo -= 0.1; boss_bullets.push({ x: boss_player.x + boss_player.width / 2 - 5, y: boss_player.y, speed: 10 }); boss_shootCooldown = 6; } } for (let i = boss_bullets.length - 1; i >= 0; i--) { const b = boss_bullets[i]; b.y -= b.speed; if (b.x > boss_boss.x && b.x < boss_boss.x + boss_boss.width && b.y < boss_boss.y + boss_boss.height) { boss_bullets.splice(i, 1); boss_boss.hp -= boss_playerAttackPower; } else if (b.y < 0) { boss_bullets.splice(i, 1); } } for (let i = boss_waterSplash.length - 1; i >= 0; i--) { const p = boss_waterSplash[i]; p.vy += BOSS_MARIO_GRAVITY * 0.3; p.x += p.vx; p.y += p.vy; p.lifespan--; if (p.x > boss_boss.x && p.x < boss_boss.x + boss_boss.width && p.y > boss_boss.y && p.y < boss_boss.y + boss_boss.height) { boss_boss.hp -= boss_playerAttackPower; boss_waterSplash.splice(i, 1); } else if (p.lifespan <= 0) { boss_waterSplash.splice(i, 1); } } if (boss_bossFightState === 'playerTurn' || boss_bossFightState === 'bossTurn_autoAim') { boss_sideAttackTimer--; if (boss_sideAttackTimer <= 0) { boss_sideAttacks.push({ x: 0, y: Math.random() * canvas.height, vx: 3.5, radius: 8 }); boss_sideAttacks.push({ x: canvas.width, y: Math.random() * canvas.height, vx: -3.5, radius: 8 }); boss_sideAttackTimer = 120; } } for (let i = boss_sideAttacks.length - 1; i >= 0; i--) { const attack = boss_sideAttacks[i]; attack.x += attack.vx; const distToPlayer = Math.hypot(boss_player.x + boss_player.width / 2 - attack.x, boss_player.y + boss_player.height / 2 - attack.y); if (distToPlayer < boss_player.width / 2 + attack.radius) { boss_playerHp -= 1; boss_sideAttacks.splice(i, 1); } else if (attack.x < -20 || attack.x > canvas.width + 20) { boss_sideAttacks.splice(i, 1); } } if (boss_bossFightState === 'playerTurn' || boss_bossFightState === 'bossTurn_autoAim') { boss_ammoSpawnTimer--; if (boss_ammoSpawnTimer <= 0) { const xPos = Math.random() * (canvas.width - 40) + 20; const yPos = Math.random() * (canvas.height - 40) + 20; if (Math.random() < 0.1) { boss_ammoItems.push({ type: 'potion', x: xPos, y: yPos, width: 20, height: 20 }); } else { boss_ammoItems.push({ type: 'ammo', x: xPos, y: yPos, width: 20, height: 20, lifespan: 600 }); } boss_ammoSpawnTimer = Math.random() * 180 + 120; } } for (let i = boss_ammoItems.length - 1; i >= 0; i--) { const item = boss_ammoItems[i]; if (item.type === 'ammo') { item.lifespan--; if (item.lifespan <= 0) { boss_ammoItems.splice(i, 1); continue; } } if (boss_player.x < item.x + item.width && boss_player.x + boss_player.width > item.x && boss_player.y < item.y + item.height && boss_player.y + boss_player.height > item.y) { if (item.type === 'potion') { boss_playerHp += boss_maxHp * 0.2; if (boss_playerHp > boss_maxHp) boss_playerHp = boss_maxHp; } else { boss_ammo += (5 + upgradeLevels.ammo); } boss_ammoItems.splice(i, 1); } } }
 function boss_initBossAutoAimPattern() { boss_bossFightState = 'bossTurn_autoAim'; boss_bossAttackTimer = 180; boss_player.x = canvas.width / 2 - 25; boss_player.y = canvas.height - 80; }
@@ -276,6 +349,26 @@ function boss_drawBossSewerPattern() { ctx.fillStyle = '#333333'; ctx.fillRect(0
 // =========================================================================
 function fetchRankings() { if (!API_KEY || !BIN_ID || API_KEY === 'YOUR_X_MASTER_KEY') return; fetch(`${JSONBIN_URL}/latest`, { headers: { 'X-Master-Key': API_KEY } }).then(response => response.json()).then(data => { sewerRankings = data.record.sewer ? data.record.sewer.map(r => r.score).sort((a, b) => b - a) : []; droneRankings = data.record.drone ? data.record.drone.map(r => r.score).sort((a, b) => b - a) : []; bossRankings = data.record.boss ? data.record.boss.map(r => r.score).sort((a, b) => a - b) : []; }).catch(error => console.error('랭킹 로딩 실패:', error)); }
 function submitScore(gameType, finalScore) { if (!API_KEY || !BIN_ID || API_KEY === 'YOUR_X_MASTER_KEY') return; fetch(`${JSONBIN_URL}/latest`, { headers: { 'X-Master-Key': API_KEY } }).then(response => response.json()).then(data => { let currentRankings = data.record; if (!currentRankings[gameType]) { currentRankings[gameType] = []; } currentRankings[gameType].push({ score: finalScore, date: new Date().toISOString() }); if (gameType === 'boss') { currentRankings[gameType].sort((a, b) => a.score - b.score); } else { currentRankings[gameType].sort((a, b) => b.score - a.score); } currentRankings[gameType] = currentRankings[gameType].slice(0, 10); return fetch(JSONBIN_URL, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY }, body: JSON.stringify(currentRankings) }); }).then(response => response.json()).then(() => { fetchRankings(); }).catch(error => console.error('점수 제출 실패:', error)); }
+function submitFeedback(text) {
+    if (!API_KEY || !BIN_ID || API_KEY === 'YOUR_X_MASTER_KEY') { alert("피드백 기능이 설정되지 않았습니다."); return; }
+    fetch(`${JSONBIN_URL}/latest`, { headers: { 'X-Master-Key': API_KEY } })
+    .then(response => { if (!response.ok) throw new Error("데이터를 불러오는데 실패했습니다."); return response.json(); })
+    .then(data => {
+        let currentData = data.record;
+        if (!currentData.feedback) { currentData.feedback = []; }
+        const newFeedback = { text: text, date: new Date().toISOString() };
+        currentData.feedback.push(newFeedback);
+        if (currentData.feedback.length > 20) { currentData.feedback = currentData.feedback.slice(-20); }
+        return fetch(JSONBIN_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+            body: JSON.stringify(currentData)
+        });
+    })
+    .then(response => { if (!response.ok) throw new Error("데이터 전송에 실패했습니다."); return response.json(); })
+    .then(() => { alert("소중한 피드백 감사합니다!"); })
+    .catch(error => { console.error('피드백 제출 실패:', error); alert("피드백 전송에 실패했습니다. 콘솔을 확인해주세요."); });
+}
 
 const playerImage = new Image();
 const backgroundImage = new Image();
