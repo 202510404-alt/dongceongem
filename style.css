@@ -3,7 +3,7 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden; /* 스크롤바 숨기기 */
-  background-color: #111; /* 게임 바깥의 배경색 */
+  background-color: #999; /* 게임 바깥의 배경색 */
   display: flex;
   justify-content: center;
   align-items: center;
