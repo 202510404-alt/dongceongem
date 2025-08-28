@@ -51,7 +51,7 @@ function update() {
             microbeAnimationDirection = 1;
         }
     }
-
+    
     if (controlMode === 'keyboard') {
         let upJustPressed = keys['w'] && !inputState.upPressed; 
         inputState.up = upJustPressed; 
@@ -132,7 +132,7 @@ function drawPlayerWithAnimation(playerObject) {
         case 'drone': spriteSet = playerSprites.drone; break;
         case 'standing': default: spriteSet = playerSprites.stand; break;
     }
-
+    
     if (spriteSet && spriteSet.length > 0) {
         let frameIndex = playerObject.animationFrame;
         if (frameIndex < 0) frameIndex = 0;
@@ -396,14 +396,14 @@ function generateMarioObjects(currentX) {
         const selectedSprite = platformSprites[spriteIndex];
         platforms.push({ x: nextX, y: 340, width: 120, height: 30, sprite: selectedSprite });
         if (Math.random() < COIN_SPAWN_CHANCE) {
-            coins_mario.push({ x: nextX + (120 / 2) - 10, y: 310, width: 20, height: 20 });
+            coins_mario.push({ x: nextX + (120 / 2) - (18 / 2), y: 340 - 49, width: 18, height: 49 });
         }
         if (Math.random() < 0.5) {
             const spriteIndex2 = Math.floor(Math.random() * platformSprites.length);
             const selectedSprite2 = platformSprites[spriteIndex2];
             platforms.push({ x: nextX, y: 210, width: 120, height: 30, sprite: selectedSprite2 });
             if (Math.random() < COIN_SPAWN_CHANCE) {
-                coins_mario.push({ x: nextX + (120 / 2) - 10, y: 180, width: 20, height: 20 });
+                coins_mario.push({ x: nextX + (120 / 2) - (18 / 2), y: 210 - 49, width: 18, height: 49 });
             }
         }
     }
@@ -423,7 +423,7 @@ function updateMario() {
         marioPlayer.facingDirection = 'left';
     }
     if (marioPlayer.x < 0) marioPlayer.x = 0;
-
+    
     if (scrollSpeed > 0) {
         backgroundX -= scrollSpeed * 0.3;
         foregroundX -= scrollSpeed;
@@ -475,7 +475,7 @@ function updateMario() {
         }
     });
     marioPlayer.isJumping = !onSomething;
-
+    
     if (marioPlayer.readyJumpTimer > 0) {
         marioPlayer.animationState = 'readyToJump';
     } else if (!onSomething) {
@@ -502,16 +502,14 @@ function drawMario() {
         ctx.drawImage(marioBackgroundImage, backgroundX, 0, scaledBgWidth, canvas.height);
         ctx.drawImage(marioBackgroundImage, backgroundX + scaledBgWidth, 0, scaledBgWidth, canvas.height);
     }
-
+    
     coins_mario.forEach(c => {
         const sprite = microbeSprites[microbeAnimationFrame];
         if (sprite && sprite.complete) {
             ctx.drawImage(sprite, c.x, c.y, c.width, c.height);
         } else {
             ctx.fillStyle = 'deepskyblue';
-            ctx.beginPath();
-            ctx.arc(c.x + 10, c.y + 10, 10, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillRect(c.x, c.y, c.width, c.height);
         }
     });
 
@@ -532,7 +530,7 @@ function drawMario() {
         ctx.drawImage(foregroundBridgeImage, foregroundX, 0, scaledBridgeWidth, canvas.height);
         ctx.drawImage(foregroundBridgeImage, foregroundX + scaledBridgeWidth, 0, scaledBridgeWidth, canvas.height);
     }
-
+    
     ctx.fillStyle = 'black'; ctx.font = '20px Arial'; ctx.fillText(`Time: ${Math.floor(MARIO_GOAL_TIME - gameTime)}s`, 60, 30); ctx.fillText(`수집: ${marioCollected}`, 60, 60);
 }
 
@@ -590,7 +588,7 @@ function initDroneShooter() {
 function updateDroneShooter() {
     if (currentMicrobes < 0.1) { finalScoreType = 'drone'; finalScore = droneShooterScore; coins += droneShooterScore; submitScore(finalScoreType, finalScore); gameState = 'gameOver'; return; }
     shootCooldown--; pollutantSpawnTimer--;
-
+    
     if (inputState.left) { droneShooterPlayer.x -= droneShooterPlayer.speed; }
     if (inputState.right) { droneShooterPlayer.x += droneShooterPlayer.speed; }
     if (inputState.upPressed) { droneShooterPlayer.y -= droneShooterPlayer.speed; }
@@ -688,7 +686,7 @@ function boss_updateSharedBossMechanics() {
     }
     updatePlayerAnimation(boss_player);
 
-    boss_shootCooldown--; if (boss_bossFightState === 'bossTurn_mario') { if (inputState.action && boss_ammo > 0 && boss_shootCooldown <= 0) { boss_ammo--; for (let i = 0; i < 20; i++) { boss_waterSplash.push({ x: boss_player.x + 25, y: boss_player.y + 25, radius: Math.random() * 2 + 2, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 5 - 3, lifespan: 60 }); } boss_shootCooldown = 6; } } else if (boss_bossFightState !== 'bossTurn_sewer') { if (inputState.actionHold && boss_ammo > 0 && boss_shootCooldown <= 0) { boss_ammo -= 0.1; boss_bullets.push({ x: boss_player.x + boss_player.width / 2 - 5, y: boss_player.y, speed: 10 }); boss_shootCooldown = 6; } } for (let i = boss_bullets.length - 1; i >= 0; i--) { const b = boss_bullets[i]; b.y -= b.speed; if (b.x > boss_boss.x && b.x < boss_boss.x + boss_boss.width && b.y < boss_boss.y + boss_boss.height) { boss_bullets.splice(i, 1); boss_boss.hp -= boss_playerAttackPower; } else if (b.y < 0) { boss_bullets.splice(i, 1); } } for (let i = boss_waterSplash.length - 1; i >= 0; i--) { const p = boss_waterSplash[i]; p.vy += BOSS_MARIO_GRAVITY * 0.3; p.x += p.vx; p.y += p.vy; p.lifespan--; if (p.x > boss_boss.x && p.x < boss_boss.x + boss_boss.width && p.y > boss_boss.y && p.y < boss_boss.y + boss_boss.height) { boss_boss.hp -= boss_playerAttackPower; boss_waterSplash.splice(i, 1); } else if (p.lifespan <= 0) { boss_waterSplash.splice(i, 1); } } if (boss_bossFightState === 'playerTurn' || boss_bossFightState === 'bossTurn_autoAim') { boss_sideAttackTimer--; if (boss_sideAttackTimer <= 0) { boss_sideAttacks.push({ x: 0, y: Math.random() * canvas.height, vx: 3.5, radius: 8 }); boss_sideAttacks.push({ x: canvas.width, y: Math.random() * canvas.height, vx: -3.5, radius: 8 }); boss_sideAttackTimer = 120; } } for (let i = boss_sideAttacks.length - 1; i >= 0; i--) { const attack = boss_sideAttacks[i]; attack.x += attack.vx; const distToPlayer = Math.hypot(boss_player.x + boss_player.width / 2 - attack.x, boss_player.y + boss_player.height / 2 - attack.y); if (distToPlayer < boss_player.width / 2 + attack.radius) { boss_playerHp -= 1; boss_sideAttacks.splice(i, 1); } else if (attack.x < -20 || attack.x > canvas.width + 20) { boss_sideAttacks.splice(i, 1); } } if (boss_bossFightState === 'playerTurn' || boss_bossFightState === 'bossTurn_autoAim') { boss_ammoSpawnTimer--; if (boss_ammoSpawnTimer <= 0) { const xPos = Math.random() * (canvas.width - 40) + 20; const yPos = Math.random() * (canvas.height - 40) + 20; if (Math.random() < 0.1) { boss_ammoItems.push({ type: 'potion', x: xPos, y: yPos, width: 20, height: 20 }); } else { boss_ammoItems.push({ type: 'ammo', x: xPos, y: yPos, width: 20, height: 20, lifespan: 600 }); } boss_ammoSpawnTimer = Math.random() * 180 + 120; } } for (let i = boss_ammoItems.length - 1; i >= 0; i--) { const item = boss_ammoItems[i]; if (item.type === 'ammo') { item.lifespan--; if (item.lifespan <= 0) { boss_ammoItems.splice(i, 1); continue; } } if (boss_player.x < item.x + item.width && boss_player.x + boss_player.width > item.x && boss_player.y < item.y + item.height && boss_player.y + boss_player.height > item.y) { if (item.type === 'potion') { boss_playerHp += boss_maxHp * 0.2; if (boss_playerHp > boss_maxHp) boss_playerHp = boss_maxHp; } else { boss_ammo += (5 + upgradeLevels.ammo); } boss_ammoItems.splice(i, 1); } } 
+    boss_shootCooldown--; if (boss_bossFightState === 'bossTurn_mario') { if (inputState.action && boss_ammo > 0 && boss_shootCooldown <= 0) { boss_ammo--; for (let i = 0; i < 20; i++) { boss_waterSplash.push({ x: boss_player.x + 25, y: boss_player.y + 25, radius: Math.random() * 2 + 2, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 5 - 3, lifespan: 60 }); } boss_shootCooldown = 6; } } else if (boss_bossFightState !== 'bossTurn_sewer') { if (inputState.actionHold && boss_ammo > 0 && boss_shootCooldown <= 0) { boss_ammo -= 0.1; boss_bullets.push({ x: boss_player.x + boss_player.width / 2 - 5, y: boss_player.y, speed: 10 }); boss_shootCooldown = 6; } } for (let i = boss_bullets.length - 1; i >= 0; i--) { const b = boss_bullets[i]; b.y -= b.speed; if (b.x > boss_boss.x && b.x < boss_boss.x + boss_boss.width && b.y < boss_boss.y + boss_boss.height) { boss_bullets.splice(i, 1); boss_boss.hp -= boss_playerAttackPower; } else if (b.y < 0) { boss_bullets.splice(i, 1); } } for (let i = boss_waterSplash.length - 1; i >= 0; i--) { const p = boss_waterSplash[i]; p.vy += BOSS_MARIO_GRAVITY * 0.3; p.x += p.vx; p.y += p.vy; p.lifespan--; if (p.x > boss_boss.x && p.x < boss_boss.x + boss_boss.width && p.y > boss_boss.y && p.y < boss_boss.y + boss_boss.height) { boss_boss.hp -= boss_playerAttackPower; boss_waterSplash.splice(i, 1); } else if (p.lifespan <= 0) { boss_waterSplash.splice(i, 1); } } if (boss_bossFightState === 'playerTurn' || boss_bossFightState === 'bossTurn_autoAim') { boss_sideAttackTimer--; if (boss_sideAttackTimer <= 0) { boss_sideAttacks.push({ x: 0, y: Math.random() * canvas.height, vx: 3.5, radius: 8 }); boss_sideAttacks.push({ x: canvas.width, y: Math.random() * canvas.height, vx: -3.5, radius: 8 }); boss_sideAttackTimer = 120; } } for (let i = boss_sideAttacks.length - 1; i >= 0; i--) { const attack = boss_sideAttacks[i]; attack.x += attack.vx; const distToPlayer = Math.hypot(boss_player.x + boss_player.width / 2 - attack.x, boss_player.y + boss_player.height / 2 - attack.y); if (distToPlayer < boss_player.width / 2 + attack.radius) { boss_playerHp -= 1; boss_sideAttacks.splice(i, 1); } else if (attack.x < -20 || attack.x > canvas.width + 20) { boss_sideAttacks.splice(i, 1); } } if (boss_bossFightState === 'playerTurn' || boss_bossFightState === 'bossTurn_autoAim') { boss_ammoSpawnTimer--; if (boss_ammoSpawnTimer <= 0) { const xPos = Math.random() * (canvas.width - 40) + 20; const yPos = Math.random() * (canvas.height - 40) + 20; if (Math.random() < 0.1) { boss_ammoItems.push({ type: 'potion', x: xPos, y: yPos, width: 20, height: 20 }); } else { boss_ammoItems.push({ type: 'ammo', x: xPos, y: yPos, width: 18, height: 49, lifespan: 600 }); } boss_ammoSpawnTimer = Math.random() * 180 + 120; } } for (let i = boss_ammoItems.length - 1; i >= 0; i--) { const item = boss_ammoItems[i]; if (item.type === 'ammo') { item.lifespan--; if (item.lifespan <= 0) { boss_ammoItems.splice(i, 1); continue; } } if (boss_player.x < item.x + item.width && boss_player.x + boss_player.width > item.x && boss_player.y < item.y + item.height && boss_player.y + boss_player.height > item.y) { if (item.type === 'potion') { boss_playerHp += boss_maxHp * 0.2; if (boss_playerHp > boss_maxHp) boss_playerHp = boss_maxHp; } else { boss_ammo += (5 + upgradeLevels.ammo); } boss_ammoItems.splice(i, 1); } } 
 }
 function boss_initBossAutoAimPattern() { boss_bossFightState = 'bossTurn_autoAim'; boss_bossAttackTimer = 180; boss_player.x = canvas.width / 2 - 37.5; boss_player.y = canvas.height - 90; }
 function boss_updateBossAutoAimPattern() { boss_bossAttackTimer--; if (boss_bossAttackTimer <= 0) { const dx = (boss_player.x + boss_player.width / 2) - (boss_boss.x + boss_boss.width / 2); const dy = (boss_player.y + boss_player.height / 2) - (boss_boss.y + boss_boss.height / 2); const dist = Math.hypot(dx, dy); const vx = (dx / dist) * 4.5; const vy = (dy / dist) * 4.5; boss_bossAttacks.push({ type: 'autoAim', x: boss_boss.x + boss_boss.width / 2, y: boss_boss.y + boss_boss.height, radius: 10, vx, vy }); boss_bossAttackTimer = 180; } for (let i = boss_bossAttacks.length - 1; i >= 0; i--) { const attack = boss_bossAttacks[i]; attack.x += attack.vx; attack.y += attack.vy; const distToPlayer = Math.hypot(boss_player.x + boss_player.width / 2 - attack.x, boss_player.y + boss_player.height / 2 - attack.y); if (distToPlayer < boss_player.width / 2 + attack.radius) { boss_playerHp -= 2; boss_bossAttacks.splice(i, 1); } else if (attack.y > canvas.height || attack.x < 0 || attack.x > canvas.width) { boss_bossAttacks.splice(i, 1); } } }
@@ -723,9 +721,7 @@ function boss_drawBossFight() {
                 ctx.drawImage(sprite, item.x, item.y, item.width, item.height);
             } else {
                 ctx.fillStyle = 'deepskyblue';
-                ctx.beginPath();
-                ctx.arc(item.x + 10, item.y + 10, 10, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fillRect(item.x, item.y, item.width, item.height);
             }
         } 
     }); 
@@ -734,7 +730,7 @@ function boss_drawBossFight() {
     drawPlayerWithAnimation(boss_player);
     ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.textAlign = 'left'; 
     ctx.fillText(`Player HP: ${Math.ceil(boss_playerHp)} / ${Math.floor(boss_maxHp)}`, 60, 30); 
-
+    
     ctx.fillText(`미생물: ${Math.floor(boss_ammo)}`, 60, 60); 
 
     ctx.fillText(`Boss HP: ${Math.ceil(boss_boss.hp)}`, canvas.width - 140, 30); 
@@ -833,7 +829,7 @@ for(const key in imageSources) {
         if (key === 'microbe') targetArray = microbeSprites;
         else if (key === 'platform') targetArray = platformSprites;
         else targetArray = playerSprites[key];
-
+        
         imageSources[key].forEach(src => {
             const img = new Image();
             targetArray.push(img);
