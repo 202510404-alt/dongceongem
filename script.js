@@ -51,7 +51,7 @@ function update() {
             microbeAnimationDirection = 1;
         }
     }
-    
+
     if (controlMode === 'keyboard') {
         let upJustPressed = keys['w'] && !inputState.upPressed; 
         inputState.up = upJustPressed; 
@@ -132,7 +132,7 @@ function drawPlayerWithAnimation(playerObject) {
         case 'drone': spriteSet = playerSprites.drone; break;
         case 'standing': default: spriteSet = playerSprites.stand; break;
     }
-    
+
     if (spriteSet && spriteSet.length > 0) {
         let frameIndex = playerObject.animationFrame;
         if (frameIndex < 0) frameIndex = 0;
@@ -423,7 +423,7 @@ function updateMario() {
         marioPlayer.facingDirection = 'left';
     }
     if (marioPlayer.x < 0) marioPlayer.x = 0;
-    
+
     if (scrollSpeed > 0) {
         backgroundX -= scrollSpeed * 0.3;
         foregroundX -= scrollSpeed;
@@ -475,7 +475,7 @@ function updateMario() {
         }
     });
     marioPlayer.isJumping = !onSomething;
-    
+
     if (marioPlayer.readyJumpTimer > 0) {
         marioPlayer.animationState = 'readyToJump';
     } else if (!onSomething) {
@@ -502,7 +502,7 @@ function drawMario() {
         ctx.drawImage(marioBackgroundImage, backgroundX, 0, scaledBgWidth, canvas.height);
         ctx.drawImage(marioBackgroundImage, backgroundX + scaledBgWidth, 0, scaledBgWidth, canvas.height);
     }
-    
+
     coins_mario.forEach(c => {
         const sprite = microbeSprites[microbeAnimationFrame];
         if (sprite && sprite.complete) {
@@ -530,7 +530,7 @@ function drawMario() {
         ctx.drawImage(foregroundBridgeImage, foregroundX, 0, scaledBridgeWidth, canvas.height);
         ctx.drawImage(foregroundBridgeImage, foregroundX + scaledBridgeWidth, 0, scaledBridgeWidth, canvas.height);
     }
-    
+
     ctx.fillStyle = 'black'; ctx.font = '20px Arial'; ctx.fillText(`Time: ${Math.floor(MARIO_GOAL_TIME - gameTime)}s`, 60, 30); ctx.fillText(`수집: ${marioCollected}`, 60, 60);
 }
 
@@ -588,7 +588,7 @@ function initDroneShooter() {
 function updateDroneShooter() {
     if (currentMicrobes < 0.1) { finalScoreType = 'drone'; finalScore = droneShooterScore; coins += droneShooterScore; submitScore(finalScoreType, finalScore); gameState = 'gameOver'; return; }
     shootCooldown--; pollutantSpawnTimer--;
-    
+
     if (inputState.left) { droneShooterPlayer.x -= droneShooterPlayer.speed; }
     if (inputState.right) { droneShooterPlayer.x += droneShooterPlayer.speed; }
     if (inputState.upPressed) { droneShooterPlayer.y -= droneShooterPlayer.speed; }
@@ -730,7 +730,7 @@ function boss_drawBossFight() {
     drawPlayerWithAnimation(boss_player);
     ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.textAlign = 'left'; 
     ctx.fillText(`Player HP: ${Math.ceil(boss_playerHp)} / ${Math.floor(boss_maxHp)}`, 60, 30); 
-    
+
     ctx.fillText(`미생물: ${Math.floor(boss_ammo)}`, 60, 60); 
 
     ctx.fillText(`Boss HP: ${Math.ceil(boss_boss.hp)}`, canvas.width - 140, 30); 
@@ -829,7 +829,7 @@ for(const key in imageSources) {
         if (key === 'microbe') targetArray = microbeSprites;
         else if (key === 'platform') targetArray = platformSprites;
         else targetArray = playerSprites[key];
-        
+
         imageSources[key].forEach(src => {
             const img = new Image();
             targetArray.push(img);
