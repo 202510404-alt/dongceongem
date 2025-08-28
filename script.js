@@ -7,6 +7,7 @@ const API_KEY = '$2a$10$7eC/WMxnHG69g8oVI1jBkOQWKu6jZF5eOtprIHYEcZx3RKq0veh4.';
 const BIN_ID = '68a95d74d0ea881f4061154b';
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
+
 let gameState = 'modeSelection';
 let controlMode = 'keyboard';
 
