@@ -21,6 +21,11 @@ let finalScoreType = '', finalScore = 0;
 let sewerRankings = [], droneRankings = [], bossRankings = [];
 let inputState = { up: false, down: false, left: false, right: false, action: false, actionHold: false, actionPressed: false, upPressed: false, downPressed: false };
 
+let microbeAnimationFrame = 0;
+let microbeAnimationTimer = 0;
+let microbeAnimationDirection = 1;
+
+
 document.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
 document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
 canvas.addEventListener('click', handleMouseClick);
@@ -35,13 +40,34 @@ canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
 // 2. 게임 루프 및 입력 처리
 // =========================================================================
 function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
-
 function update() {
+    microbeAnimationTimer++;
+    if (microbeAnimationTimer > 8) {
+        microbeAnimationTimer = 0;
+        microbeAnimationFrame += microbeAnimationDirection;
+        if (microbeAnimationFrame >= 3) {
+            microbeAnimationDirection = -1;
+        } else if (microbeAnimationFrame <= 0) {
+            microbeAnimationDirection = 1;
+        }
+    }
+
     if (controlMode === 'keyboard') {
-        let upJustPressed = keys['w'] && !inputState.upPressed; inputState.up = upJustPressed; inputState.upPressed = keys['w'] || false;
-        let downJustPressed = keys['s'] && !inputState.downPressed; inputState.down = downJustPressed; inputState.downPressed = keys['s'] || false;
-        inputState.left = keys['a'] || false; inputState.right = keys['d'] || false;
-        let actionJustPressed = keys[' '] && !inputState.actionPressed; inputState.action = actionJustPressed; inputState.actionHold = keys[' '] || false; inputState.actionPressed = keys[' '] || false;
+        let upJustPressed = keys['w'] && !inputState.upPressed; 
+        inputState.up = upJustPressed; 
+        inputState.upPressed = keys['w'] || false;
+
+        let downJustPressed = keys['s'] && !inputState.downPressed; 
+        inputState.down = downJustPressed; 
+        inputState.downPressed = keys['s'] || false;
+
+        inputState.left = keys['a'] || false;
+        inputState.right = keys['d'] || false;
+
+        let actionJustPressed = keys[' '] && !inputState.actionPressed; 
+        inputState.action = actionJustPressed; 
+        inputState.actionHold = keys[' '] || false; 
+        inputState.actionPressed = keys[' '] || false;
     }
 
     if (gameState === 'modeSelection') updateModeSelection();
@@ -72,6 +98,68 @@ function draw() {
     }
 }
 
+function initializePlayerAnimation(player) {
+    player.animationState = 'standing';
+    player.animationFrame = 0;
+    player.animationTimer = 0;
+    player.animationDirection = 1;
+    player.facingDirection = 'right';
+    player.readyJumpTimer = 0;
+    return player;
+}
+
+function updatePlayerAnimation(player, frameSpeed = 8) {
+    player.animationTimer++;
+    if (player.animationTimer > frameSpeed) {
+        player.animationTimer = 0;
+        player.animationFrame += player.animationDirection;
+        if (player.animationFrame >= 2) {
+            player.animationDirection = -1;
+        } else if (player.animationFrame <= 0) {
+            player.animationDirection = 1;
+        }
+    }
+}
+
+function drawPlayerWithAnimation(playerObject) {
+    let currentSprite;
+    let spriteSet;
+
+    switch (playerObject.animationState) {
+        case 'running': spriteSet = playerSprites.run; break;
+        case 'jumping': spriteSet = playerSprites.jump; break;
+        case 'readyToJump': spriteSet = [playerSprites.readyJump]; break;
+        case 'drone': spriteSet = playerSprites.drone; break;
+        case 'standing': default: spriteSet = playerSprites.stand; break;
+    }
+
+    if (spriteSet && spriteSet.length > 0) {
+        let frameIndex = playerObject.animationFrame;
+        if (frameIndex < 0) frameIndex = 0;
+        if (frameIndex >= spriteSet.length) frameIndex = spriteSet.length - 1;
+        currentSprite = spriteSet[frameIndex];
+    }
+
+    if (!currentSprite || !currentSprite.complete || currentSprite.naturalWidth === 0) {
+        currentSprite = playerImage;
+    }
+
+    ctx.save();
+    try {
+        if (playerObject.facingDirection === 'left') {
+            ctx.scale(-1, 1);
+            ctx.drawImage(currentSprite, -(playerObject.x + playerObject.width), playerObject.y, playerObject.width, playerObject.height);
+        } else {
+            ctx.drawImage(currentSprite, playerObject.x, playerObject.y, playerObject.width, playerObject.height);
+        }
+    } catch (e) {
+        if(playerImage.complete) ctx.drawImage(playerImage, playerObject.x, playerObject.y, playerObject.width, playerObject.height);
+    } finally {
+        ctx.restore();
+    }
+}
+
+
 // =========================================================================
 // 3. 모바일 UI 및 통합 입력 처리 (마우스 + 터치)
 // =========================================================================
@@ -83,7 +171,7 @@ function drawMobileUI() { ctx.globalAlpha = 0.5; ctx.fillStyle = 'grey'; ctx.beg
 function handleMouseDown(e) { if (controlMode !== 'mobile') return; const fakeTouch = { clientX: e.clientX, clientY: e.clientY, identifier: 'mouse' }; const fakeEvent = { changedTouches: [fakeTouch], preventDefault: () => {} }; handleTouchStart(fakeEvent); }
 function handleMouseMove(e) { if (controlMode !== 'mobile') return; const fakeTouch = { clientX: e.clientX, clientY: e.clientY, identifier: 'mouse' }; const fakeEvent = { changedTouches: [fakeTouch], touches: [fakeTouch], preventDefault: () => {} }; handleTouchMove(fakeEvent); }
 function handleMouseUp(e) { if (controlMode !== 'mobile') return; const fakeTouch = { clientX: e.clientX, clientY: e.clientY, identifier: 'mouse' }; const fakeEvent = { changedTouches: [fakeTouch], preventDefault: () => {} }; handleTouchEnd(fakeEvent); }
-function handleTouchStart(e) { e.preventDefault(); const touches = e.changedTouches; if (gameState === 'modeSelection' || gameState === 'start' || gameState === 'gameOver' || gameState === 'upgradeScreen' || gameState === 'choice') { handleMouseClick({ clientX: touches[0].clientX, clientY: touches[0].clientY }); return; } if (controlMode !== 'mobile') return; for (let i = 0; i < touches.length; i++) { const touch = touches[i]; const { x, y } = getTouchCoordinates(touch); const distToAction = Math.hypot(x - actionButton.x, y - actionButton.y); if (distToAction < actionButton.radius && !actionButton.active) { actionButton.active = true; actionButton.pointerId = touch.identifier; inputState.action = true; inputState.actionHold = true; } const distToJoy = Math.hypot(x - joystick.x, y - joystick.y); if (distToJoy < joystick.radius && !joystick.active) { joystick.active = true; joystick.pointerId = touch.identifier; } } }
+function handleTouchStart(e) { if (controlMode !== 'mobile') return; e.preventDefault(); const touches = e.changedTouches; if (gameState === 'modeSelection' || gameState === 'start' || gameState === 'gameOver' || gameState === 'upgradeScreen' || gameState === 'choice') { handleMouseClick({ clientX: touches[0].clientX, clientY: touches[0].clientY }); return; } for (let i = 0; i < touches.length; i++) { const touch = touches[i]; const { x, y } = getTouchCoordinates(touch); const distToAction = Math.hypot(x - actionButton.x, y - actionButton.y); if (distToAction < actionButton.radius && !actionButton.active) { actionButton.active = true; actionButton.pointerId = touch.identifier; inputState.action = true; inputState.actionHold = true; } const distToJoy = Math.hypot(x - joystick.x, y - joystick.y); if (distToJoy < joystick.radius && !joystick.active) { joystick.active = true; joystick.pointerId = touch.identifier; } } }
 function handleTouchMove(e) { if (controlMode !== 'mobile') return; e.preventDefault(); for (let i = 0; i < e.touches.length; i++) { const touch = e.touches[i]; if (touch.identifier === joystick.pointerId) { const { x, y } = getTouchCoordinates(touch); const dx = x - joystick.x; const dy = y - joystick.y; const dist = Math.hypot(dx, dy); const angle = Math.atan2(dy, dx); const moveDist = Math.min(dist, joystick.radius - joystick.stickRadius); joystick.dx = Math.cos(angle) * moveDist; joystick.dy = Math.sin(angle) * moveDist; const threshold = joystick.radius * 0.2; inputState.right = joystick.dx > threshold; inputState.left = joystick.dx < -threshold; const verticalThreshold = joystick.radius * 0.4; let upNow = joystick.dy < -verticalThreshold; let downNow = joystick.dy > verticalThreshold; if (upNow && !inputState.upPressed) { inputState.up = true; } else { inputState.up = false; } inputState.upPressed = upNow; if (downNow && !inputState.downPressed) { inputState.down = true; } else { inputState.down = false; } inputState.downPressed = downNow; } } }
 function handleTouchEnd(e) { if (controlMode !== 'mobile') return; e.preventDefault(); for (let i = 0; i < e.changedTouches.length; i++) { const touch = e.changedTouches[i]; if (touch.identifier === actionButton.pointerId) { actionButton.active = false; actionButton.pointerId = null; inputState.action = false; inputState.actionHold = false; } if (touch.identifier === joystick.pointerId) { joystick.active = false; joystick.pointerId = null; joystick.dx = 0; joystick.dy = 0; inputState.up = false; inputState.down = false; inputState.left = false; inputState.right = false; inputState.upPressed = false; inputState.downPressed = false; } } }
 
@@ -274,23 +362,131 @@ function purchaseUpgrade(type) {
 // =========================================================================
 // 5. 미니게임 파트
 // =========================================================================
-let marioPlayer, goal, groundTiles, platforms, coins_mario; let backgroundX = 0; const MARIO_GRAVITY = 0.8;
+let marioPlayer, goal, groundTiles, platforms, coins_mario; let backgroundX = 0, foregroundX = 0; const MARIO_GRAVITY = 0.8;
 const MARIO_GOAL_TIME = 60;
 let marioCollected = 0;
 const MARIO_SCROLL_THRESHOLD = canvas.width / 2; const PLATFORM_MIN_GAP = 150, PLATFORM_MAX_GAP = 300; const COIN_SPAWN_CHANCE = 0.25; let particles;
-function initMario() { gameState = 'mario'; marioCollected = 0; startTime = Date.now(); marioPlayer = { x: 50, y: 400, width: 50, height: 50, speed: 5, vy: 0, isJumping: true }; goal = { x: 0, y: 0, width: 20, height: 1000, isActive: false }; groundTiles = []; platforms = []; coins_mario = []; backgroundX = 0; particles = []; groundTiles.push({ x: 0, y: 550, width: canvas.width, height: 50 }); groundTiles.push({ x: canvas.width, y: 550, width: canvas.width, height: 50 }); let currentX = canvas.width / 2; for (let i = 0; i < 10; i++) { currentX = generateMarioObjects(currentX); } }
-function generateMarioObjects(currentX) { const gap = Math.random() * (PLATFORM_MAX_GAP - PLATFORM_MIN_GAP) + PLATFORM_MIN_GAP; const nextX = currentX + gap; if (Math.random() < 0.8) { const width1 = Math.random() * 70 + 80; platforms.push({ x: nextX, y: 430, width: width1, height: 15 }); if (Math.random() < COIN_SPAWN_CHANCE) { coins_mario.push({ x: nextX + width1 / 2 - 10, y: 400, width: 20, height: 20 }); } if (Math.random() < 0.5) { const width2 = Math.random() * 70 + 80; platforms.push({ x: nextX, y: 300, width: width2, height: 15 }); if (Math.random() < COIN_SPAWN_CHANCE) { coins_mario.push({ x: nextX + width2 / 2 - 10, y: 270, width: 20, height: 20 }); } } } return nextX; }
+
+function initMario() {
+    gameState = 'mario';
+    marioCollected = 0;
+    startTime = Date.now();
+    let playerObject = { x: 50, y: 385, width: 75, height: 75, speed: 5, vy: 0, isJumping: true };
+    marioPlayer = initializePlayerAnimation(playerObject);
+
+    goal = { x: 0, y: 0, width: 20, height: 1000, isActive: false };
+    groundTiles = []; platforms = []; coins_mario = []; backgroundX = 0; particles = [];
+    foregroundX = 0;
+
+    const groundY = 460;
+    groundTiles.push({ x: 0, y: groundY, width: canvas.width, height: 20 });
+    groundTiles.push({ x: canvas.width, y: groundY, width: canvas.width, height: 20 });
+
+    let currentX = canvas.width / 2;
+    for (let i = 0; i < 10; i++) {
+        currentX = generateMarioObjects(currentX);
+    }
+}
+
+function generateMarioObjects(currentX) {
+    const gap = Math.random() * (PLATFORM_MAX_GAP - PLATFORM_MIN_GAP) + PLATFORM_MIN_GAP;
+    const nextX = currentX + gap;
+    if (Math.random() < 0.8) {
+        const spriteIndex = Math.floor(Math.random() * platformSprites.length);
+        const selectedSprite = platformSprites[spriteIndex];
+        platforms.push({ x: nextX, y: 340, width: 120, height: 30, sprite: selectedSprite });
+        if (Math.random() < COIN_SPAWN_CHANCE) {
+            coins_mario.push({ x: nextX + (120 / 2) - 10, y: 310, width: 20, height: 20 });
+        }
+        if (Math.random() < 0.5) {
+            const spriteIndex2 = Math.floor(Math.random() * platformSprites.length);
+            const selectedSprite2 = platformSprites[spriteIndex2];
+            platforms.push({ x: nextX, y: 210, width: 120, height: 30, sprite: selectedSprite2 });
+            if (Math.random() < COIN_SPAWN_CHANCE) {
+                coins_mario.push({ x: nextX + (120 / 2) - 10, y: 180, width: 20, height: 20 });
+            }
+        }
+    }
+    return nextX;
+}
+
 function updateMario() {
-    gameTime = (Date.now() - startTime) / 1000; let scrollSpeed = 0;
-    if (inputState.right) { if (marioPlayer.x < MARIO_SCROLL_THRESHOLD) { marioPlayer.x += marioPlayer.speed; } else { scrollSpeed = marioPlayer.speed; } }
-    if (inputState.left && marioPlayer.x > 0) { marioPlayer.x -= marioPlayer.speed; }
-    if (scrollSpeed > 0) { backgroundX -= scrollSpeed * 0.3; if (backgroundX <= -canvas.width) { backgroundX = 0; } [...groundTiles, ...platforms, ...coins_mario, goal].forEach(obj => { obj.x -= scrollSpeed; }); }
-    if (inputState.up && !marioPlayer.isJumping) { marioPlayer.vy = -18; }
-    marioPlayer.vy += MARIO_GRAVITY; marioPlayer.y += marioPlayer.vy;
+    gameTime = (Date.now() - startTime) / 1000;
+    let scrollSpeed = 0;
+
+    if (inputState.right) {
+        if (marioPlayer.x < MARIO_SCROLL_THRESHOLD) { marioPlayer.x += marioPlayer.speed; } else { scrollSpeed = marioPlayer.speed; }
+        marioPlayer.facingDirection = 'right';
+    }
+    if (inputState.left) {
+        marioPlayer.x -= marioPlayer.speed;
+        marioPlayer.facingDirection = 'left';
+    }
+    if (marioPlayer.x < 0) marioPlayer.x = 0;
+
+    if (scrollSpeed > 0) {
+        backgroundX -= scrollSpeed * 0.3;
+        foregroundX -= scrollSpeed;
+
+        if (marioBackgroundImage.naturalWidth > 0) {
+            const bgRatio = marioBackgroundImage.naturalWidth / marioBackgroundImage.naturalHeight;
+            const scaledBgWidth = canvas.height * bgRatio;
+            if (backgroundX <= -scaledBgWidth) {
+                backgroundX += scaledBgWidth;
+            }
+        }
+        if (foregroundBridgeImage.naturalWidth > 0) {
+            const bridgeRatio = foregroundBridgeImage.naturalWidth / foregroundBridgeImage.naturalHeight;
+            const scaledBridgeWidth = canvas.height * bridgeRatio;
+            if (foregroundX <= -scaledBridgeWidth) {
+                foregroundX += scaledBridgeWidth;
+            }
+        }
+
+        [...groundTiles, ...platforms, ...coins_mario, goal].forEach(obj => { obj.x -= scrollSpeed; });
+    }
+
+    if (inputState.up && !marioPlayer.isJumping) {
+        marioPlayer.vy = -18;
+        marioPlayer.animationState = 'readyToJump';
+        marioPlayer.readyJumpTimer = 6;
+    }
+
+    if (marioPlayer.readyJumpTimer <= 0) {
+        marioPlayer.vy += MARIO_GRAVITY;
+        marioPlayer.y += marioPlayer.vy;
+    } else {
+        marioPlayer.readyJumpTimer--;
+    }
+
     let onSomething = false;
-    groundTiles.forEach(tile => { if (marioPlayer.y + marioPlayer.height >= tile.y && marioPlayer.x < tile.x + tile.width && marioPlayer.x + marioPlayer.width > tile.x) { marioPlayer.y = tile.y - marioPlayer.height; marioPlayer.vy = 0; onSomething = true; } });
-    platforms.forEach(p => { if (marioPlayer.vy > 0 && marioPlayer.y + marioPlayer.height >= p.y && marioPlayer.y + marioPlayer.height - marioPlayer.vy <= p.y + 5 && marioPlayer.x < p.x + p.width && marioPlayer.x + marioPlayer.width > p.x) { marioPlayer.y = p.y - marioPlayer.height; marioPlayer.vy = 0; onSomething = true; } });
+    groundTiles.forEach(tile => {
+        if (marioPlayer.vy > 0 && marioPlayer.y + marioPlayer.height >= tile.y && marioPlayer.x + marioPlayer.width > tile.x && marioPlayer.x < tile.x + tile.width) {
+            marioPlayer.y = tile.y - marioPlayer.height;
+            marioPlayer.vy = 0;
+            onSomething = true;
+        }
+    });
+    platforms.forEach(p => {
+        if (marioPlayer.vy > 0 && marioPlayer.y + marioPlayer.height >= p.y && marioPlayer.y + marioPlayer.height - marioPlayer.vy <= p.y + 5 && marioPlayer.x < p.x + p.width && marioPlayer.x + marioPlayer.width > p.x) {
+            marioPlayer.y = p.y - marioPlayer.height;
+            marioPlayer.vy = 0;
+            onSomething = true;
+        }
+    });
     marioPlayer.isJumping = !onSomething;
+
+    if (marioPlayer.readyJumpTimer > 0) {
+        marioPlayer.animationState = 'readyToJump';
+    } else if (!onSomething) {
+        marioPlayer.animationState = 'jumping';
+    } else if (inputState.left || inputState.right) {
+        marioPlayer.animationState = 'running';
+    } else {
+        marioPlayer.animationState = 'standing';
+    }
+    updatePlayerAnimation(marioPlayer);
+
     for (let i = coins_mario.length - 1; i >= 0; i--) { const c = coins_mario[i]; if (marioPlayer.x < c.x + c.width && marioPlayer.x + marioPlayer.width > c.x && marioPlayer.y < c.y + c.height && marioPlayer.y + marioPlayer.height > c.y) { marioCollected++; coins_mario.splice(i, 1); } }
     let rightmostX = 0; [...groundTiles, ...platforms].forEach(obj => { if (obj.x + obj.width > rightmostX) rightmostX = obj.x + obj.width; }); if (!goal.isActive && rightmostX < canvas.width * 2) { generateMarioObjects(rightmostX); }
     groundTiles.forEach((t, i) => { if (t.x + t.width < 0) { const other = i === 0 ? 1 : 0; t.x = groundTiles[other].x + groundTiles[other].width; } });
@@ -298,21 +494,114 @@ function updateMario() {
     if (goal.isActive && marioPlayer.x + marioPlayer.width > goal.x) { score += marioCollected; gameState = 'choice'; }
     if (marioPlayer.y > canvas.height) { score += marioCollected; initStartScreen(); }
 }
-function drawMario() { ctx.drawImage(backgroundImage, backgroundX, 0, canvas.width, canvas.height); ctx.drawImage(backgroundImage, backgroundX + canvas.width, 0, canvas.width, canvas.height); ctx.fillStyle = 'green'; groundTiles.forEach(t => ctx.fillRect(t.x, t.y, t.width, t.height)); ctx.fillStyle = 'gold'; coins_mario.forEach(c => { ctx.beginPath(); ctx.arc(c.x + 10, c.y + 10, 10, 0, Math.PI * 2); ctx.fill(); }); ctx.fillStyle = 'saddlebrown'; platforms.forEach(p => ctx.fillRect(p.x, p.y, p.width, p.height)); ctx.drawImage(playerImage, marioPlayer.x, marioPlayer.y, marioPlayer.width, marioPlayer.height); ctx.fillStyle = 'black'; ctx.font = '20px Arial'; ctx.fillText(`Time: ${Math.floor(MARIO_GOAL_TIME - gameTime)}s`, 60, 30); ctx.fillText(`수집: ${marioCollected}`, 60, 60); }
+
+function drawMario() {
+    if (marioBackgroundImage.naturalWidth > 0) {
+        const bgRatio = marioBackgroundImage.naturalWidth / marioBackgroundImage.naturalHeight;
+        const scaledBgWidth = canvas.height * bgRatio;
+        ctx.drawImage(marioBackgroundImage, backgroundX, 0, scaledBgWidth, canvas.height);
+        ctx.drawImage(marioBackgroundImage, backgroundX + scaledBgWidth, 0, scaledBgWidth, canvas.height);
+    }
+
+    coins_mario.forEach(c => {
+        const sprite = microbeSprites[microbeAnimationFrame];
+        if (sprite && sprite.complete) {
+            ctx.drawImage(sprite, c.x, c.y, c.width, c.height);
+        } else {
+            ctx.fillStyle = 'deepskyblue';
+            ctx.beginPath();
+            ctx.arc(c.x + 10, c.y + 10, 10, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    });
+
+    platforms.forEach(p => {
+        if (p.sprite && p.sprite.complete) {
+            ctx.drawImage(p.sprite, p.x, p.y, p.width, p.height);
+        } else {
+            ctx.fillStyle = 'saddlebrown';
+            ctx.fillRect(p.x, p.y, p.width, p.height);
+        }
+    });
+
+    drawPlayerWithAnimation(marioPlayer);
+
+    if (foregroundBridgeImage.naturalWidth > 0) {
+        const bridgeRatio = foregroundBridgeImage.naturalWidth / foregroundBridgeImage.naturalHeight;
+        const scaledBridgeWidth = canvas.height * bridgeRatio;
+        ctx.drawImage(foregroundBridgeImage, foregroundX, 0, scaledBridgeWidth, canvas.height);
+        ctx.drawImage(foregroundBridgeImage, foregroundX + scaledBridgeWidth, 0, scaledBridgeWidth, canvas.height);
+    }
+
+    ctx.fillStyle = 'black'; ctx.font = '20px Arial'; ctx.fillText(`Time: ${Math.floor(MARIO_GOAL_TIME - gameTime)}s`, 60, 30); ctx.fillText(`수집: ${marioCollected}`, 60, 60);
+}
+
 let sewerPlayer, sewerTiles, sewerRunObjects; let sewerRunScore = 0; let currentMicrobes = 0; const LANE_Y_POSITIONS = [250, 350, 450, 550]; const SEWER_AUTO_SCROLL_SPEED = -3; let laneObstacleTimers = [];
-function initSewerRun() { gameState = 'sewerRun'; sewerRunScore = 0; currentMicrobes = score; sewerPlayer = { x: 100, width: 50, height: 50, speed: 5, currentLane: 1, y: LANE_Y_POSITIONS[1] }; sewerTiles = []; sewerRunObjects = []; laneObstacleTimers = []; const tileWidth = 200; const numTiles = Math.ceil(canvas.width / tileWidth) + 1; for (let i = 0; i < numTiles; i++) { sewerTiles.push({ x: i * tileWidth, y: 0 }); } for (let i = 0; i < 4; i++) { laneObstacleTimers.push(Math.random() * 120 + 60); } let currentX = canvas.width; for (let i = 0; i < 5; i++) { currentX = generateSewer(currentX); } }
+function initSewerRun() { 
+    gameState = 'sewerRun'; 
+    sewerRunScore = 0; 
+    currentMicrobes = score; 
+    let playerObject = { x: 100, width: 75, height: 75, speed: 5, currentLane: 1, y: LANE_Y_POSITIONS[1] };
+    sewerPlayer = initializePlayerAnimation(playerObject);
+
+    sewerTiles = []; sewerRunObjects = []; laneObstacleTimers = []; const tileWidth = 200; const numTiles = Math.ceil(canvas.width / tileWidth) + 1; for (let i = 0; i < numTiles; i++) { sewerTiles.push({ x: i * tileWidth, y: 0 }); } for (let i = 0; i < 4; i++) { laneObstacleTimers.push(Math.random() * 120 + 60); } let currentX = canvas.width; for (let i = 0; i < 5; i++) { currentX = generateSewer(currentX); } 
+}
 function generateSewer(currentX) { const gap = Math.random() * 400 + 300; const nextX = currentX + gap; const laneIndex = Math.floor(Math.random() * 4); if (Math.random() < 0.5) { sewerRunObjects.push({ type: 'sewer', x: nextX, y: LANE_Y_POSITIONS[laneIndex] + 5, radius: 20, isCleaned: false, lane: laneIndex }); } return nextX; }
-function updateSewerRun() { if (currentMicrobes <= 0) { finalScoreType = 'sewer'; finalScore = sewerRunScore; coins += sewerRunScore; submitScore(finalScoreType, finalScore); gameState = 'gameOver'; return; } laneObstacleTimers.forEach((timer, i) => { laneObstacleTimers[i]--; if (laneObstacleTimers[i] <= 0) { if (Math.random() < 0.3) { sewerRunObjects.push({ type: 'obstacle', x: canvas.width + 50, y: LANE_Y_POSITIONS[i], width: 40, height: 40, lane: i }); } laneObstacleTimers[i] = Math.random() * 120 + 60; } }); let playerScrollSpeed = 0; if (inputState.left) { playerScrollSpeed = sewerPlayer.speed; } if (inputState.right) { playerScrollSpeed = -sewerPlayer.speed; } sewerTiles.forEach(tile => { tile.x += playerScrollSpeed; }); sewerRunObjects.forEach(obj => { if (obj.type === 'obstacle') { obj.x += SEWER_AUTO_SCROLL_SPEED + playerScrollSpeed; } else if (obj.type === 'sewer') { obj.x += playerScrollSpeed; } }); sewerTiles.forEach(tile => { if (tile.x < -200) { tile.x += sewerTiles.length * 200; } else if (tile.x > canvas.width) { tile.x -= sewerTiles.length * 200; } }); if (inputState.up) { if (sewerPlayer.currentLane > 0) sewerPlayer.currentLane--; } if (inputState.down) { if (sewerPlayer.currentLane < LANE_Y_POSITIONS.length - 1) sewerPlayer.currentLane++; } sewerPlayer.y = LANE_Y_POSITIONS[sewerPlayer.currentLane]; for (let i = sewerRunObjects.length - 1; i >= 0; i--) { const obj = sewerRunObjects[i]; if (obj.x < -100) { sewerRunObjects.splice(i, 1); continue; } if (obj.lane !== sewerPlayer.currentLane) continue; const playerBox = { x: sewerPlayer.x, y: sewerPlayer.y, width: sewerPlayer.width, height: sewerPlayer.height }; if (obj.type === 'obstacle') { const obstacleBox = { x: obj.x, y: obj.y, width: obj.width, height: obj.height }; if (playerBox.x < obstacleBox.x + obstacleBox.width && playerBox.x + playerBox.width > obstacleBox.x && playerBox.y < obstacleBox.y + obstacleBox.height && playerBox.y + playerBox.height > obstacleBox.y) { currentMicrobes--; sewerRunObjects.splice(i, 1); } } else if (obj.type === 'sewer') { if (inputState.action && !obj.isCleaned && Math.abs((sewerPlayer.x + sewerPlayer.width / 2) - obj.x) < 40) { if (currentMicrobes > 0) { currentMicrobes--; obj.isCleaned = true; sewerRunScore++; } } } } let rightmostSewerX = 0; sewerRunObjects.forEach(obj => { if (obj.type === 'sewer' && obj.x > rightmostSewerX) rightmostSewerX = obj.x; }); if (rightmostSewerX < canvas.width + 400) { generateSewer(rightmostSewerX); } }
-function drawSewerRun() { ctx.fillStyle = '#333333'; ctx.fillRect(0, 0, canvas.width, canvas.height); sewerTiles.forEach(tile => { ctx.fillStyle = '#424242'; ctx.fillRect(tile.x, 250, 200, 400); ctx.strokeStyle = '#333333'; ctx.lineWidth = 2; for (let i = 0; i < 10; i++) { ctx.beginPath(); ctx.moveTo(tile.x + i * 20, 250); ctx.lineTo(tile.x + i * 20, canvas.height); ctx.stroke(); } for (let i = 0; i < 20; i++) { ctx.beginPath(); ctx.moveTo(tile.x, 250 + i * 20); ctx.lineTo(tile.x + 200, 250 + i * 20); ctx.stroke(); } }); ctx.strokeStyle = '#212121'; ctx.lineWidth = 4; LANE_Y_POSITIONS.forEach((yPos, i) => { if (i < 3) { const lineY = yPos + 75; ctx.beginPath(); ctx.moveTo(0, lineY); ctx.lineTo(canvas.width, lineY); ctx.stroke(); } }); sewerRunObjects.forEach(obj => { if (obj.type === 'obstacle') { ctx.fillStyle = 'red'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); } else if (obj.type === 'sewer') { ctx.fillStyle = obj.isCleaned ? 'deepskyblue' : 'black'; ctx.beginPath(); ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2); ctx.fill(); } }); ctx.drawImage(playerImage, sewerPlayer.x, sewerPlayer.y, sewerPlayer.width, sewerPlayer.height); ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.fillText(`미생물: ${currentMicrobes}`, 60, 30); ctx.fillText(`정화: ${sewerRunScore}`, 60, 60); }
+function updateSewerRun() { 
+    if (currentMicrobes <= 0) { finalScoreType = 'sewer'; finalScore = sewerRunScore; coins += sewerRunScore; submitScore(finalScoreType, finalScore); gameState = 'gameOver'; return; } 
+    laneObstacleTimers.forEach((timer, i) => { laneObstacleTimers[i]--; if (laneObstacleTimers[i] <= 0) { if (Math.random() < 0.3) { sewerRunObjects.push({ type: 'obstacle', x: canvas.width + 50, y: LANE_Y_POSITIONS[i], width: 40, height: 40, lane: i }); } laneObstacleTimers[i] = Math.random() * 120 + 60; } }); 
+
+    let playerScrollSpeed = 0; 
+    if (inputState.left) { playerScrollSpeed = sewerPlayer.speed; sewerPlayer.facingDirection = 'left';} 
+    if (inputState.right) { playerScrollSpeed = -sewerPlayer.speed; sewerPlayer.facingDirection = 'right';} 
+
+    if (inputState.left || inputState.right) { sewerPlayer.animationState = 'running'; } 
+    else { sewerPlayer.animationState = 'standing'; }
+    updatePlayerAnimation(sewerPlayer);
+
+    sewerTiles.forEach(tile => { tile.x += playerScrollSpeed; }); 
+    sewerRunObjects.forEach(obj => { if (obj.type === 'obstacle') { obj.x += SEWER_AUTO_SCROLL_SPEED + playerScrollSpeed; } else if (obj.type === 'sewer') { obj.x += playerScrollSpeed; } }); 
+    sewerTiles.forEach(tile => { if (tile.x < -200) { tile.x += sewerTiles.length * 200; } else if (tile.x > canvas.width) { tile.x -= sewerTiles.length * 200; } }); 
+    if (inputState.up) { if (sewerPlayer.currentLane > 0) sewerPlayer.currentLane--; } 
+    if (inputState.down) { if (sewerPlayer.currentLane < LANE_Y_POSITIONS.length - 1) sewerPlayer.currentLane++; } 
+    sewerPlayer.y = LANE_Y_POSITIONS[sewerPlayer.currentLane]; 
+    for (let i = sewerRunObjects.length - 1; i >= 0; i--) { const obj = sewerRunObjects[i]; if (obj.x < -100) { sewerRunObjects.splice(i, 1); continue; } if (obj.lane !== sewerPlayer.currentLane) continue; const playerBox = { x: sewerPlayer.x, y: sewerPlayer.y, width: sewerPlayer.width, height: sewerPlayer.height }; if (obj.type === 'obstacle') { const obstacleBox = { x: obj.x, y: obj.y, width: obj.width, height: obj.height }; if (playerBox.x < obstacleBox.x + obstacleBox.width && playerBox.x + playerBox.width > obstacleBox.x && playerBox.y < obstacleBox.y + obstacleBox.height && playerBox.y + playerBox.height > obstacleBox.y) { currentMicrobes--; sewerRunObjects.splice(i, 1); } } else if (obj.type === 'sewer') { if (inputState.action && !obj.isCleaned && Math.abs((sewerPlayer.x + sewerPlayer.width / 2) - obj.x) < 40) { if (currentMicrobes > 0) { currentMicrobes--; obj.isCleaned = true; sewerRunScore++; } } } } 
+    let rightmostSewerX = 0; sewerRunObjects.forEach(obj => { if (obj.type === 'sewer' && obj.x > rightmostSewerX) rightmostSewerX = obj.x; }); if (rightmostSewerX < canvas.width + 400) { generateSewer(rightmostSewerX); } 
+}
+function drawSewerRun() { 
+    ctx.fillStyle = '#333333'; ctx.fillRect(0, 0, canvas.width, canvas.height); 
+    sewerTiles.forEach(tile => { ctx.fillStyle = '#424242'; ctx.fillRect(tile.x, 250, 200, 400); ctx.strokeStyle = '#333333'; ctx.lineWidth = 2; for (let i = 0; i < 10; i++) { ctx.beginPath(); ctx.moveTo(tile.x + i * 20, 250); ctx.lineTo(tile.x + i * 20, canvas.height); ctx.stroke(); } for (let i = 0; i < 20; i++) { ctx.beginPath(); ctx.moveTo(tile.x, 250 + i * 20); ctx.lineTo(tile.x + 200, 250 + i * 20); ctx.stroke(); } }); 
+    ctx.strokeStyle = '#212121'; ctx.lineWidth = 4; LANE_Y_POSITIONS.forEach((yPos, i) => { if (i < 3) { const lineY = yPos + 75; ctx.beginPath(); ctx.moveTo(0, lineY); ctx.lineTo(canvas.width, lineY); ctx.stroke(); } }); 
+    sewerRunObjects.forEach(obj => { if (obj.type === 'obstacle') { ctx.fillStyle = 'red'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); } else if (obj.type === 'sewer') { ctx.fillStyle = obj.isCleaned ? 'deepskyblue' : 'black'; ctx.beginPath(); ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2); ctx.fill(); } }); 
+    drawPlayerWithAnimation(sewerPlayer);
+    ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.fillText(`미생물: ${currentMicrobes}`, 60, 30); ctx.fillText(`정화: ${sewerRunScore}`, 60, 60); 
+}
 let droneShooterPlayer, bullets, pollutants; let droneShooterScore = 0; let shootCooldown = 0; let pollutantSpawnTimer = 0; const RIVER_MARGIN_MINIGAME = 150;
-function initDroneShooter() { gameState = 'droneShooter'; droneShooterScore = 0; currentMicrobes = score; droneShooterPlayer = { x: canvas.width / 2 - 25, y: canvas.height - 80, width: 50, height: 50, speed: 6 }; bullets = []; pollutants = []; shootCooldown = 0; pollutantSpawnTimer = 60; }
+function initDroneShooter() { 
+    gameState = 'droneShooter'; 
+    droneShooterScore = 0; 
+    currentMicrobes = score; 
+    let playerObject = { x: canvas.width / 2 - 37.5, y: canvas.height - 90, width: 75, height: 75, speed: 6 };
+    droneShooterPlayer = initializePlayerAnimation(playerObject);
+    droneShooterPlayer.animationState = 'drone';
+
+    bullets = []; pollutants = []; shootCooldown = 0; pollutantSpawnTimer = 60; 
+}
 function updateDroneShooter() {
     if (currentMicrobes < 0.1) { finalScoreType = 'drone'; finalScore = droneShooterScore; coins += droneShooterScore; submitScore(finalScoreType, finalScore); gameState = 'gameOver'; return; }
     shootCooldown--; pollutantSpawnTimer--;
+
     if (inputState.left) { droneShooterPlayer.x -= droneShooterPlayer.speed; }
     if (inputState.right) { droneShooterPlayer.x += droneShooterPlayer.speed; }
+    if (inputState.upPressed) { droneShooterPlayer.y -= droneShooterPlayer.speed; }
+    if (inputState.downPressed) { droneShooterPlayer.y += droneShooterPlayer.speed; }
+
     if (droneShooterPlayer.x < RIVER_MARGIN_MINIGAME) droneShooterPlayer.x = RIVER_MARGIN_MINIGAME;
     if (droneShooterPlayer.x + droneShooterPlayer.width > canvas.width - RIVER_MARGIN_MINIGAME) droneShooterPlayer.x = canvas.width - RIVER_MARGIN_MINIGAME - droneShooterPlayer.width;
+    if (droneShooterPlayer.y < 0) droneShooterPlayer.y = 0;
+    if (droneShooterPlayer.y + droneShooterPlayer.height > canvas.height) droneShooterPlayer.y = canvas.height - droneShooterPlayer.height;
+
+    updatePlayerAnimation(droneShooterPlayer);
 
     if (currentMicrobes >= 0.1 && shootCooldown <= 0) {
         currentMicrobes -= 0.1;
@@ -324,24 +613,154 @@ function updateDroneShooter() {
     if (pollutantSpawnTimer <= 0) { pollutants.push({ x: Math.random() * (canvas.width - RIVER_MARGIN_MINIGAME * 2 - 40) + RIVER_MARGIN_MINIGAME, y: -50, width: 40, height: 40, speedY: Math.random() * 1 + 1, hp: Math.floor(Math.random() * 3) + 1, maxHp: 3 }); pollutantSpawnTimer = Math.random() * 90 + 30; }
     for (let i = pollutants.length - 1; i >= 0; i--) { const p = pollutants[i]; p.y += p.speedY; if (p.y > canvas.height) { pollutants.splice(i, 1); continue; } for (let j = bullets.length - 1; j >= 0; j--) { const b = bullets[j]; if (b.x < p.x + p.width && b.x + b.width > p.x && b.y < p.y + p.height && b.y + b.height > p.y) { bullets.splice(j, 1); p.hp -= 0.5; if (p.hp <= 0) { pollutants.splice(i, 1); droneShooterScore++; break; } } } }
 }
-function drawDroneShooter() { ctx.fillStyle = '#616161'; ctx.fillRect(0, 0, RIVER_MARGIN_MINIGAME, canvas.height); ctx.fillRect(canvas.width - RIVER_MARGIN_MINIGAME, 0, RIVER_MARGIN_MINIGAME, canvas.height); ctx.fillStyle = '#1a237e'; ctx.fillRect(RIVER_MARGIN_MINIGAME, 0, canvas.width - RIVER_MARGIN_MINIGAME * 2, canvas.height); ctx.fillStyle = 'deepskyblue'; bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x + 5, b.y + 10, 5, 0, Math.PI * 2); ctx.fill(); }); pollutants.forEach(p => { const colorValue = Math.floor(150 * (1 - p.hp / p.maxHp)); ctx.fillStyle = `rgb(${colorValue}, ${colorValue}, ${colorValue})`; ctx.beginPath(); ctx.arc(p.x + p.width / 2, p.y + p.height / 2, p.width / 2, 0, Math.PI * 2); ctx.fill(); }); ctx.drawImage(playerImage, droneShooterPlayer.x, droneShooterPlayer.y, droneShooterPlayer.width, droneShooterPlayer.height); ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.fillText(`미생물: ${currentMicrobes.toFixed(1)}`, 60, 30); ctx.fillText(`정화: ${droneShooterScore}`, 60, 60); }
+function drawDroneShooter() { 
+    ctx.fillStyle = '#616161'; ctx.fillRect(0, 0, RIVER_MARGIN_MINIGAME, canvas.height); ctx.fillRect(canvas.width - RIVER_MARGIN_MINIGAME, 0, RIVER_MARGIN_MINIGAME, canvas.height); ctx.fillStyle = '#1a237e'; ctx.fillRect(RIVER_MARGIN_MINIGAME, 0, canvas.width - RIVER_MARGIN_MINIGAME * 2, canvas.height); 
+    ctx.fillStyle = 'deepskyblue'; bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x + 5, b.y + 10, 5, 0, Math.PI * 2); ctx.fill(); }); 
+    pollutants.forEach(p => { const colorValue = Math.floor(150 * (1 - p.hp / p.maxHp)); ctx.fillStyle = `rgb(${colorValue}, ${colorValue}, ${colorValue})`; ctx.beginPath(); ctx.arc(p.x + p.width / 2, p.y + p.height / 2, p.width / 2, 0, Math.PI * 2); ctx.fill(); }); 
+    drawPlayerWithAnimation(droneShooterPlayer);
+    ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.fillText(`미생물: ${currentMicrobes.toFixed(1)}`, 60, 30); ctx.fillText(`정화: ${droneShooterScore}`, 60, 60); 
+}
 
 // =========================================================================
 // 6. 보스전 파트
 // =========================================================================
 let boss_boss, boss_player, boss_bullets, boss_ammoItems, boss_bossAttacks, boss_sideAttacks, boss_waterSplash; let boss_bossFightState = 'playerTurn'; let boss_turnTimer = 0; let boss_playerHp = 0; let boss_maxHp = 10; let boss_ammo = 0; let boss_playerAttackPower = 0.3; let boss_shootCooldown = 0, boss_ammoSpawnTimer = 0, boss_bossAttackTimer = 0, boss_sideAttackTimer = 0, boss_tsunamiTimer = 0; let boss_areaAttackState = 'none', boss_areaAttackTimer = 0; let boss_bossMario_ground = [], boss_bossMario_platforms = []; let boss_bossSewer_lanes = [250, 350, 450, 550]; let boss_laneSwitchCooldown = 0; let boss_startTime; const BOSS_JUMP_HEIGHT = 220; const BOSS_JUMP_DURATION = 120; const BOSS_MARIO_GRAVITY = 0.8;
-function boss_initBossFight() { gameState = 'bossFight'; boss_bossFightState = 'playerTurn'; boss_startTime = Date.now(); boss_maxHp = playerStats.maxHp; boss_playerAttackPower = 0.3 + (upgradeLevels.power * (5 / 7)); boss_playerHp = boss_maxHp; boss_ammo = 10; boss_boss = { x: canvas.width / 2 - 100, y: 100, width: 200, height: 80, hp: 2500, maxHp: 2500, vx: 0, vy: 0, targetX: 0, startX: 0, startY: 0, jumpProgress: 0, isJumping: false }; boss_player = { x: canvas.width / 2 - 25, y: canvas.height - 80, width: 50, height: 50, speed: 6, vy: 0, isJumping: true, currentLane: 1 }; boss_bullets = []; boss_ammoItems = []; boss_bossAttacks = []; boss_sideAttacks = []; boss_waterSplash = []; boss_shootCooldown = 0; boss_ammoSpawnTimer = 120; boss_turnTimer = 600; }
+function boss_initBossFight() { 
+    gameState = 'bossFight'; 
+    boss_bossFightState = 'playerTurn'; 
+    boss_startTime = Date.now(); 
+    boss_maxHp = playerStats.maxHp; 
+    boss_playerAttackPower = 0.3 + (upgradeLevels.power * (5 / 7)); 
+    boss_playerHp = boss_maxHp; 
+    boss_ammo = 10; 
+    boss_boss = { x: canvas.width / 2 - 100, y: 100, width: 200, height: 80, hp: 2500, maxHp: 2500, vx: 0, vy: 0, targetX: 0, startX: 0, startY: 0, jumpProgress: 0, isJumping: false }; 
+
+    let playerObject = { x: canvas.width / 2 - 37.5, y: canvas.height - 90, width: 75, height: 75, speed: 6, vy: 0, isJumping: true, currentLane: 1 };
+    boss_player = initializePlayerAnimation(playerObject);
+
+    boss_bullets = []; boss_ammoItems = []; boss_bossAttacks = []; boss_sideAttacks = []; boss_waterSplash = []; boss_shootCooldown = 0; boss_ammoSpawnTimer = 120; boss_turnTimer = 600; 
+}
 function boss_updateBossFight() { if (boss_playerHp <= 0) { finalScore = 0; finalScoreType = 'boss'; gameState = 'gameOver'; return; } if (boss_boss.hp <= 0) { const clearTime = ((Date.now() - boss_startTime) / 1000).toFixed(2); finalScore = parseFloat(clearTime); finalScoreType = 'boss'; coins += 50; submitScore(finalScoreType, finalScore); gameState = 'gameOver'; return; } boss_turnTimer--; if (boss_turnTimer <= 0) { const previousState = boss_bossFightState; if (boss_bossFightState === 'playerTurn') { boss_bossFightState = 'bossTurn'; boss_turnTimer = 1200; const rand = Math.random(); if (rand < 0.33) { boss_initBossAutoAimPattern(); } else if (rand < 0.66) { boss_initBossMarioPattern(); } else { boss_initBossSewerPattern(); } } else { boss_bossFightState = 'playerTurn'; boss_turnTimer = 600; boss_bossAttacks = []; if (previousState !== 'bossTurn_autoAim') { boss_player.x = canvas.width / 2 - 25; boss_player.y = canvas.height - 80; } boss_boss.x = canvas.width / 2 - 100; boss_boss.y = 100; } } boss_updateSharedBossMechanics(); if (boss_bossFightState === 'bossTurn_autoAim') { boss_updateBossAutoAimPattern(); } else if (boss_bossFightState === 'bossTurn_mario') { boss_updateBossMarioPattern(); } else if (boss_bossFightState === 'bossTurn_sewer') { boss_updateBossSewerPattern(); } }
-function boss_updateSharedBossMechanics() { if (boss_bossFightState === 'bossTurn_mario') { if (inputState.up && !boss_player.isJumping) { boss_player.vy = -22; } if (inputState.right) { boss_player.x += boss_player.speed; } if (inputState.left) { boss_player.x -= boss_player.speed; } if (boss_player.x < 0) boss_player.x = 0; if (boss_player.x + boss_player.width > canvas.width) boss_player.x = canvas.width - boss_player.width; boss_player.vy += BOSS_MARIO_GRAVITY; boss_player.y += boss_player.vy; let onSomething = false; [...boss_bossMario_ground, ...boss_bossMario_platforms].forEach(g => { if (boss_player.vy > 0 && boss_player.y + boss_player.height >= g.y && boss_player.y + boss_player.height - boss_player.vy <= g.y + 5 && boss_player.x < g.x + g.width && boss_player.x + boss_player.width > g.x) { boss_player.y = g.y - boss_player.height; boss_player.vy = 0; onSomething = true; } }); boss_player.isJumping = !onSomething; } else if (boss_bossFightState === 'bossTurn_sewer') { boss_laneSwitchCooldown--; if (inputState.up && boss_laneSwitchCooldown <= 0) { if (boss_player.currentLane > 0) { boss_player.currentLane--; boss_laneSwitchCooldown = 12; } } if (inputState.down && boss_laneSwitchCooldown <= 0) { if (boss_player.currentLane < 3) { boss_player.currentLane++; boss_laneSwitchCooldown = 12; } } if (inputState.left) { boss_player.x -= boss_player.speed; } if (inputState.right) { boss_player.x += boss_player.speed; } if (boss_player.x < 0) boss_player.x = 0; if (boss_player.x + boss_player.width > canvas.width) boss_player.x = canvas.width - boss_player.width; boss_player.y = boss_bossSewer_lanes[boss_player.currentLane]; } else { if (inputState.left) { boss_player.x -= boss_player.speed; } if (inputState.right) { boss_player.x += boss_player.speed; } if (inputState.upPressed) { boss_player.y -= boss_player.speed; } if (inputState.downPressed) { boss_player.y += boss_player.speed; } if (boss_player.x < 0) boss_player.x = 0; if (boss_player.x + boss_player.width > canvas.width) boss_player.x = canvas.width - boss_player.width; if (boss_player.y < 0) boss_player.y = 0; if (boss_player.y + boss_player.height > canvas.height) boss_player.y = canvas.height - boss_player.height; } boss_shootCooldown--; if (boss_bossFightState === 'bossTurn_mario') { if (inputState.action && boss_ammo > 0 && boss_shootCooldown <= 0) { boss_ammo--; for (let i = 0; i < 20; i++) { boss_waterSplash.push({ x: boss_player.x + 25, y: boss_player.y + 25, radius: Math.random() * 2 + 2, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 5 - 3, lifespan: 60 }); } boss_shootCooldown = 6; } } else if (boss_bossFightState !== 'bossTurn_sewer') { if (inputState.actionHold && boss_ammo > 0 && boss_shootCooldown <= 0) { boss_ammo -= 0.1; boss_bullets.push({ x: boss_player.x + boss_player.width / 2 - 5, y: boss_player.y, speed: 10 }); boss_shootCooldown = 6; } } for (let i = boss_bullets.length - 1; i >= 0; i--) { const b = boss_bullets[i]; b.y -= b.speed; if (b.x > boss_boss.x && b.x < boss_boss.x + boss_boss.width && b.y < boss_boss.y + boss_boss.height) { boss_bullets.splice(i, 1); boss_boss.hp -= boss_playerAttackPower; } else if (b.y < 0) { boss_bullets.splice(i, 1); } } for (let i = boss_waterSplash.length - 1; i >= 0; i--) { const p = boss_waterSplash[i]; p.vy += BOSS_MARIO_GRAVITY * 0.3; p.x += p.vx; p.y += p.vy; p.lifespan--; if (p.x > boss_boss.x && p.x < boss_boss.x + boss_boss.width && p.y > boss_boss.y && p.y < boss_boss.y + boss_boss.height) { boss_boss.hp -= boss_playerAttackPower; boss_waterSplash.splice(i, 1); } else if (p.lifespan <= 0) { boss_waterSplash.splice(i, 1); } } if (boss_bossFightState === 'playerTurn' || boss_bossFightState === 'bossTurn_autoAim') { boss_sideAttackTimer--; if (boss_sideAttackTimer <= 0) { boss_sideAttacks.push({ x: 0, y: Math.random() * canvas.height, vx: 3.5, radius: 8 }); boss_sideAttacks.push({ x: canvas.width, y: Math.random() * canvas.height, vx: -3.5, radius: 8 }); boss_sideAttackTimer = 120; } } for (let i = boss_sideAttacks.length - 1; i >= 0; i--) { const attack = boss_sideAttacks[i]; attack.x += attack.vx; const distToPlayer = Math.hypot(boss_player.x + boss_player.width / 2 - attack.x, boss_player.y + boss_player.height / 2 - attack.y); if (distToPlayer < boss_player.width / 2 + attack.radius) { boss_playerHp -= 1; boss_sideAttacks.splice(i, 1); } else if (attack.x < -20 || attack.x > canvas.width + 20) { boss_sideAttacks.splice(i, 1); } } if (boss_bossFightState === 'playerTurn' || boss_bossFightState === 'bossTurn_autoAim') { boss_ammoSpawnTimer--; if (boss_ammoSpawnTimer <= 0) { const xPos = Math.random() * (canvas.width - 40) + 20; const yPos = Math.random() * (canvas.height - 40) + 20; if (Math.random() < 0.1) { boss_ammoItems.push({ type: 'potion', x: xPos, y: yPos, width: 20, height: 20 }); } else { boss_ammoItems.push({ type: 'ammo', x: xPos, y: yPos, width: 20, height: 20, lifespan: 600 }); } boss_ammoSpawnTimer = Math.random() * 180 + 120; } } for (let i = boss_ammoItems.length - 1; i >= 0; i--) { const item = boss_ammoItems[i]; if (item.type === 'ammo') { item.lifespan--; if (item.lifespan <= 0) { boss_ammoItems.splice(i, 1); continue; } } if (boss_player.x < item.x + item.width && boss_player.x + boss_player.width > item.x && boss_player.y < item.y + item.height && boss_player.y + boss_player.height > item.y) { if (item.type === 'potion') { boss_playerHp += boss_maxHp * 0.2; if (boss_playerHp > boss_maxHp) boss_playerHp = boss_maxHp; } else { boss_ammo += (5 + upgradeLevels.ammo); } boss_ammoItems.splice(i, 1); } } }
-function boss_initBossAutoAimPattern() { boss_bossFightState = 'bossTurn_autoAim'; boss_bossAttackTimer = 180; boss_player.x = canvas.width / 2 - 25; boss_player.y = canvas.height - 80; }
+function boss_updateSharedBossMechanics() { 
+    if (boss_bossFightState === 'bossTurn_mario') {
+        if (inputState.up && !boss_player.isJumping) { 
+            boss_player.vy = -22; 
+            boss_player.animationState = 'readyToJump';
+            boss_player.readyJumpTimer = 6;
+        }
+        if (inputState.right) { boss_player.x += boss_player.speed; boss_player.facingDirection = 'right';} 
+        if (inputState.left) { boss_player.x -= boss_player.speed; boss_player.facingDirection = 'left';} 
+        if (boss_player.x < 0) boss_player.x = 0; if (boss_player.x + boss_player.width > canvas.width) boss_player.x = canvas.width - boss_player.width; 
+
+        if (boss_player.readyJumpTimer <= 0) { boss_player.vy += BOSS_MARIO_GRAVITY; boss_player.y += boss_player.vy; } 
+        else { boss_player.readyJumpTimer--; }
+
+        let onSomething = false; 
+        [...boss_bossMario_ground, ...boss_bossMario_platforms].forEach(g => { if (boss_player.vy > 0 && boss_player.y + boss_player.height >= g.y && boss_player.y + boss_player.height - boss_player.vy <= g.y + 5 && boss_player.x < g.x + g.width && boss_player.x + boss_player.width > g.x) { boss_player.y = g.y - boss_player.height; boss_player.vy = 0; onSomething = true; } }); 
+        boss_player.isJumping = !onSomething; 
+
+        if (boss_player.readyJumpTimer > 0) { boss_player.animationState = 'readyToJump'; } 
+        else if (!onSomething) { boss_player.animationState = 'jumping'; } 
+        else if (inputState.left || inputState.right) { boss_player.animationState = 'running'; } 
+        else { boss_player.animationState = 'standing'; }
+
+    } else if (boss_bossFightState === 'bossTurn_sewer') {
+        boss_laneSwitchCooldown--;
+        if (inputState.up && boss_laneSwitchCooldown <= 0) { if (boss_player.currentLane > 0) { boss_player.currentLane--; boss_laneSwitchCooldown = 12; } } 
+        if (inputState.down && boss_laneSwitchCooldown <= 0) { if (boss_player.currentLane < 3) { boss_player.currentLane++; boss_laneSwitchCooldown = 12; } }
+        if (inputState.left) { boss_player.x -= boss_player.speed; boss_player.facingDirection = 'left'; } 
+        if (inputState.right) { boss_player.x += boss_player.speed; boss_player.facingDirection = 'right'; }
+        if (boss_player.x < 0) boss_player.x = 0; 
+        if (boss_player.x + boss_player.width > canvas.width) boss_player.x = canvas.width - boss_player.width;
+        boss_player.y = boss_bossSewer_lanes[boss_player.currentLane];
+
+        if(inputState.left || inputState.right) { boss_player.animationState = 'running'; } 
+        else { boss_player.animationState = 'standing'; }
+
+    } else { 
+        if (inputState.left) { boss_player.x -= boss_player.speed; boss_player.facingDirection = 'left';} 
+        if (inputState.right) { boss_player.x += boss_player.speed; boss_player.facingDirection = 'right';} 
+        if (inputState.upPressed) { boss_player.y -= boss_player.speed; } 
+        if (inputState.downPressed) { boss_player.y += boss_player.speed; } 
+        if (boss_player.x < 0) boss_player.x = 0; if (boss_player.x + boss_player.width > canvas.width) boss_player.x = canvas.width - boss_player.width; if (boss_player.y < 0) boss_player.y = 0; if (boss_player.y + boss_player.height > canvas.height) boss_player.y = canvas.height - boss_player.height; 
+
+        boss_player.animationState = 'drone';
+    }
+    updatePlayerAnimation(boss_player);
+
+    boss_shootCooldown--; if (boss_bossFightState === 'bossTurn_mario') { if (inputState.action && boss_ammo > 0 && boss_shootCooldown <= 0) { boss_ammo--; for (let i = 0; i < 20; i++) { boss_waterSplash.push({ x: boss_player.x + 25, y: boss_player.y + 25, radius: Math.random() * 2 + 2, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 5 - 3, lifespan: 60 }); } boss_shootCooldown = 6; } } else if (boss_bossFightState !== 'bossTurn_sewer') { if (inputState.actionHold && boss_ammo > 0 && boss_shootCooldown <= 0) { boss_ammo -= 0.1; boss_bullets.push({ x: boss_player.x + boss_player.width / 2 - 5, y: boss_player.y, speed: 10 }); boss_shootCooldown = 6; } } for (let i = boss_bullets.length - 1; i >= 0; i--) { const b = boss_bullets[i]; b.y -= b.speed; if (b.x > boss_boss.x && b.x < boss_boss.x + boss_boss.width && b.y < boss_boss.y + boss_boss.height) { boss_bullets.splice(i, 1); boss_boss.hp -= boss_playerAttackPower; } else if (b.y < 0) { boss_bullets.splice(i, 1); } } for (let i = boss_waterSplash.length - 1; i >= 0; i--) { const p = boss_waterSplash[i]; p.vy += BOSS_MARIO_GRAVITY * 0.3; p.x += p.vx; p.y += p.vy; p.lifespan--; if (p.x > boss_boss.x && p.x < boss_boss.x + boss_boss.width && p.y > boss_boss.y && p.y < boss_boss.y + boss_boss.height) { boss_boss.hp -= boss_playerAttackPower; boss_waterSplash.splice(i, 1); } else if (p.lifespan <= 0) { boss_waterSplash.splice(i, 1); } } if (boss_bossFightState === 'playerTurn' || boss_bossFightState === 'bossTurn_autoAim') { boss_sideAttackTimer--; if (boss_sideAttackTimer <= 0) { boss_sideAttacks.push({ x: 0, y: Math.random() * canvas.height, vx: 3.5, radius: 8 }); boss_sideAttacks.push({ x: canvas.width, y: Math.random() * canvas.height, vx: -3.5, radius: 8 }); boss_sideAttackTimer = 120; } } for (let i = boss_sideAttacks.length - 1; i >= 0; i--) { const attack = boss_sideAttacks[i]; attack.x += attack.vx; const distToPlayer = Math.hypot(boss_player.x + boss_player.width / 2 - attack.x, boss_player.y + boss_player.height / 2 - attack.y); if (distToPlayer < boss_player.width / 2 + attack.radius) { boss_playerHp -= 1; boss_sideAttacks.splice(i, 1); } else if (attack.x < -20 || attack.x > canvas.width + 20) { boss_sideAttacks.splice(i, 1); } } if (boss_bossFightState === 'playerTurn' || boss_bossFightState === 'bossTurn_autoAim') { boss_ammoSpawnTimer--; if (boss_ammoSpawnTimer <= 0) { const xPos = Math.random() * (canvas.width - 40) + 20; const yPos = Math.random() * (canvas.height - 40) + 20; if (Math.random() < 0.1) { boss_ammoItems.push({ type: 'potion', x: xPos, y: yPos, width: 20, height: 20 }); } else { boss_ammoItems.push({ type: 'ammo', x: xPos, y: yPos, width: 20, height: 20, lifespan: 600 }); } boss_ammoSpawnTimer = Math.random() * 180 + 120; } } for (let i = boss_ammoItems.length - 1; i >= 0; i--) { const item = boss_ammoItems[i]; if (item.type === 'ammo') { item.lifespan--; if (item.lifespan <= 0) { boss_ammoItems.splice(i, 1); continue; } } if (boss_player.x < item.x + item.width && boss_player.x + boss_player.width > item.x && boss_player.y < item.y + item.height && boss_player.y + boss_player.height > item.y) { if (item.type === 'potion') { boss_playerHp += boss_maxHp * 0.2; if (boss_playerHp > boss_maxHp) boss_playerHp = boss_maxHp; } else { boss_ammo += (5 + upgradeLevels.ammo); } boss_ammoItems.splice(i, 1); } } 
+}
+function boss_initBossAutoAimPattern() { boss_bossFightState = 'bossTurn_autoAim'; boss_bossAttackTimer = 180; boss_player.x = canvas.width / 2 - 37.5; boss_player.y = canvas.height - 90; }
 function boss_updateBossAutoAimPattern() { boss_bossAttackTimer--; if (boss_bossAttackTimer <= 0) { const dx = (boss_player.x + boss_player.width / 2) - (boss_boss.x + boss_boss.width / 2); const dy = (boss_player.y + boss_player.height / 2) - (boss_boss.y + boss_boss.height / 2); const dist = Math.hypot(dx, dy); const vx = (dx / dist) * 4.5; const vy = (dy / dist) * 4.5; boss_bossAttacks.push({ type: 'autoAim', x: boss_boss.x + boss_boss.width / 2, y: boss_boss.y + boss_boss.height, radius: 10, vx, vy }); boss_bossAttackTimer = 180; } for (let i = boss_bossAttacks.length - 1; i >= 0; i--) { const attack = boss_bossAttacks[i]; attack.x += attack.vx; attack.y += attack.vy; const distToPlayer = Math.hypot(boss_player.x + boss_player.width / 2 - attack.x, boss_player.y + boss_player.height / 2 - attack.y); if (distToPlayer < boss_player.width / 2 + attack.radius) { boss_playerHp -= 2; boss_bossAttacks.splice(i, 1); } else if (attack.y > canvas.height || attack.x < 0 || attack.x > canvas.width) { boss_bossAttacks.splice(i, 1); } } }
-function boss_initBossMarioPattern() { boss_bossFightState = 'bossTurn_mario'; boss_bossAttacks = []; boss_bossMario_ground = [{ x: 0, y: 550, width: canvas.width, height: 50 }]; boss_bossMario_platforms = [{ x: 50, y: 450, width: 150, height: 15 }, { x: 50, y: 350, width: 150, height: 15 }, { x: canvas.width - 200, y: 450, width: 150, height: 15 }, { x: canvas.width - 200, y: 350, width: 150, height: 15 }]; boss_player.x = 100; boss_player.y = 400; boss_player.vy = 0; boss_player.isJumping = true; boss_boss.x = 500; boss_boss.y = 550 - boss_boss.height; boss_boss.isJumping = false; boss_areaAttackState = 'waiting'; boss_areaAttackTimer = 180; boss_tsunamiTimer = 150; }
+function boss_initBossMarioPattern() { 
+    boss_bossFightState = 'bossTurn_mario'; 
+    boss_bossAttacks = []; 
+    boss_bossMario_ground = [{ x: 0, y: 550, width: canvas.width, height: 50 }]; 
+    boss_bossMario_platforms = [
+        { x: 50, y: 450, width: 150, height: 30, sprite: platformSprites[0] || null }, 
+        { x: 50, y: 350, width: 150, height: 30, sprite: platformSprites[1] || null }, 
+        { x: canvas.width - 200, y: 450, width: 150, height: 30, sprite: platformSprites[2] || null }, 
+        { x: canvas.width - 200, y: 350, width: 150, height: 30, sprite: platformSprites[0] || null }
+    ]; 
+    boss_player.x = 100; boss_player.y = 400; boss_player.vy = 0; boss_player.isJumping = true; boss_boss.x = 500; boss_boss.y = 550 - boss_boss.height; boss_boss.isJumping = false; boss_areaAttackState = 'waiting'; boss_areaAttackTimer = 180; boss_tsunamiTimer = 150; 
+}
 function boss_updateBossMarioPattern() { boss_areaAttackTimer--; if (boss_areaAttackTimer <= 0 && !boss_boss.isJumping) { boss_boss.isJumping = true; boss_boss.jumpProgress = 0; boss_boss.startX = boss_boss.x; boss_boss.startY = boss_boss.y; if (boss_boss.x > canvas.width / 2) { boss_boss.targetX = 100; boss_areaAttackState = 'telegraphLeft'; } else { boss_boss.targetX = 500; boss_areaAttackState = 'telegraphRight'; } boss_areaAttackTimer = 120; } if (boss_boss.isJumping) { boss_boss.jumpProgress++; let t = boss_boss.jumpProgress / BOSS_JUMP_DURATION; if (t >= 1) { t = 1; boss_boss.isJumping = false; boss_boss.x = boss_boss.targetX; boss_boss.y = boss_boss.startY; boss_areaAttackState = boss_areaAttackState.replace('telegraph', 'attack'); boss_areaAttackTimer = 60; } else { const currentX = boss_boss.startX + (boss_boss.targetX - boss_boss.startX) * t; const currentY = boss_boss.startY - Math.sin(t * Math.PI) * BOSS_JUMP_HEIGHT; boss_boss.x = currentX; boss_boss.y = currentY; } } else { if (boss_areaAttackState.includes('attack')) { boss_areaAttackTimer--; if (boss_areaAttackTimer <= 0) { boss_areaAttackState = 'waiting'; boss_areaAttackTimer = 180; } } } if (boss_areaAttackState === 'attackLeft' && boss_player.x < canvas.width / 2) { boss_playerHp -= 0.1; } if (boss_areaAttackState === 'attackRight' && boss_player.x > canvas.width / 2) { boss_playerHp -= 0.1; } boss_tsunamiTimer--; if (boss_tsunamiTimer <= 0) { boss_bossAttacks.push({ type: 'tsunami', x: -20, y: 520, vx: 4, radius: 24 }); boss_tsunamiTimer = 300; } for (let i = boss_bossAttacks.length - 1; i >= 0; i--) { const attack = boss_bossAttacks[i]; attack.x += attack.vx; const distToPlayer = Math.hypot(boss_player.x + boss_player.width / 2 - attack.x, boss_player.y + boss_player.height / 2 - attack.y); if (distToPlayer < boss_player.width / 2 + attack.radius) { boss_playerHp -= 5; boss_bossAttacks.splice(i, 1); } } }
 function boss_initBossSewerPattern() { boss_bossFightState = 'bossTurn_sewer'; boss_bossAttacks = []; boss_player.x = 100; boss_player.currentLane = 1; boss_player.y = boss_bossSewer_lanes[1]; boss_laneSwitchCooldown = 0; }
 function boss_updateBossSewerPattern() { if (boss_turnTimer % 60 === 0) { const laneIndex = Math.floor(Math.random() * 4); const fromLeft = Math.random() < 0.5; if (Math.random() < 0.2) { boss_bossAttacks.push({ type: 'sewer_potion', lane: laneIndex, x: fromLeft ? -40 : canvas.width + 40, y: boss_bossSewer_lanes[laneIndex], vx: fromLeft ? 4 : -4 }); } else { boss_bossAttacks.push({ type: 'sewer_obstacle', lane: laneIndex, x: fromLeft ? -40 : canvas.width + 40, y: boss_bossSewer_lanes[laneIndex], vx: fromLeft ? 4 : -4 }); } } for (let i = boss_bossAttacks.length - 1; i >= 0; i--) { const attack = boss_bossAttacks[i]; attack.x += attack.vx; if (attack.lane === boss_player.currentLane && Math.abs(attack.x - boss_player.x) < boss_player.width) { if (attack.type === 'sewer_obstacle') { boss_playerHp -= 1; } else { boss_playerHp += boss_maxHp * 0.2; if (boss_playerHp > boss_maxHp) boss_playerHp = boss_maxHp; } boss_bossAttacks.splice(i, 1); } } }
-function boss_drawBossFight() { if (boss_bossFightState === 'bossTurn_mario') { boss_drawBossMarioPattern(); } else if (boss_bossFightState === 'bossTurn_sewer') { boss_drawBossSewerPattern(); } else { boss_drawBossDronePattern(); } boss_ammoItems.forEach(item => { if (item.type === 'potion') { ctx.fillStyle = 'lime'; } else { ctx.fillStyle = 'gold'; } ctx.beginPath(); ctx.arc(item.x + 10, item.y + 10, 10, 0, Math.PI * 2); ctx.fill(); }); ctx.fillStyle = '#ff5722'; boss_sideAttacks.forEach(a => { ctx.beginPath(); ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2); ctx.fill(); }); ctx.drawImage(playerImage, boss_player.x, boss_player.y, boss_player.width, boss_player.height); ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.textAlign = 'left'; ctx.fillText(`Player HP: ${Math.ceil(boss_playerHp)} / ${Math.floor(boss_maxHp)}`, 60, 30); ctx.fillText(`Ammo: ${Math.floor(boss_ammo)}`, 60, 60); ctx.fillText(`Boss HP: ${Math.ceil(boss_boss.hp)}`, canvas.width - 140, 30); ctx.font = '24px Arial'; ctx.textAlign = 'center'; if (boss_bossFightState === 'playerTurn') { ctx.fillStyle = 'cyan'; ctx.fillText("ATTACK PHASE!", canvas.width / 2, canvas.height - 20); } else { ctx.fillStyle = 'red'; ctx.fillText("DEFENSE PHASE!", canvas.width / 2, canvas.height - 20); } }
+function boss_drawBossFight() { 
+    if (boss_bossFightState === 'bossTurn_mario') { boss_drawBossMarioPattern(); } 
+    else if (boss_bossFightState === 'bossTurn_sewer') { boss_drawBossSewerPattern(); } 
+    else { boss_drawBossDronePattern(); } 
+
+    boss_ammoItems.forEach(item => { 
+        if (item.type === 'potion') { 
+            ctx.fillStyle = 'lime'; 
+            ctx.beginPath(); 
+            ctx.arc(item.x + 10, item.y + 10, 10, 0, Math.PI * 2); ctx.fill(); 
+        } else { 
+            const sprite = microbeSprites[microbeAnimationFrame];
+            if (sprite && sprite.complete) {
+                ctx.drawImage(sprite, item.x, item.y, item.width, item.height);
+            } else {
+                ctx.fillStyle = 'deepskyblue';
+                ctx.beginPath();
+                ctx.arc(item.x + 10, item.y + 10, 10, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        } 
+    }); 
+
+    ctx.fillStyle = '#ff5722'; boss_sideAttacks.forEach(a => { ctx.beginPath(); ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2); ctx.fill(); }); 
+    drawPlayerWithAnimation(boss_player);
+    ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.textAlign = 'left'; 
+    ctx.fillText(`Player HP: ${Math.ceil(boss_playerHp)} / ${Math.floor(boss_maxHp)}`, 60, 30); 
+
+    ctx.fillText(`미생물: ${Math.floor(boss_ammo)}`, 60, 60); 
+
+    ctx.fillText(`Boss HP: ${Math.ceil(boss_boss.hp)}`, canvas.width - 140, 30); 
+    ctx.font = '24px Arial'; ctx.textAlign = 'center'; 
+    if (boss_bossFightState === 'playerTurn') { 
+        ctx.fillStyle = 'cyan'; 
+        ctx.fillText("플레이어 턴", canvas.width / 2, canvas.height - 20); 
+    } else { 
+        ctx.fillStyle = 'red'; 
+        ctx.fillText("보스 턴", canvas.width / 2, canvas.height - 20); 
+    } 
+}
 function boss_drawBossDronePattern() { ctx.fillStyle = '#1a237e'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = 'green'; ctx.fillRect(boss_boss.x, boss_boss.y, boss_boss.width, boss_boss.height); ctx.fillStyle = 'deepskyblue'; boss_bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI * 2); ctx.fill(); }); ctx.fillStyle = '#9c27b0'; boss_bossAttacks.forEach(a => { ctx.beginPath(); ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2); ctx.fill(); }); }
-function boss_drawBossMarioPattern() { ctx.fillStyle = '#a75934'; ctx.fillRect(0, 0, canvas.width, canvas.height); boss_bossMario_ground.forEach(g => { ctx.fillStyle = '#6d4c41'; ctx.fillRect(g.x, g.y, g.width, g.height); }); boss_bossMario_platforms.forEach(p => { ctx.fillStyle = '#8d6e63'; ctx.fillRect(p.x, p.y, p.width, p.height); }); if (boss_areaAttackState.includes('telegraph')) { ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; if (boss_areaAttackState === 'telegraphLeft') ctx.fillRect(0, 0, canvas.width / 2, canvas.height); else ctx.fillRect(canvas.width / 2, 0, canvas.width / 2, canvas.height); } else if (boss_areaAttackState.includes('attack')) { ctx.fillStyle = 'rgba(255, 0, 0, 0.6)'; if (boss_areaAttackState === 'attackLeft') ctx.fillRect(0, 0, canvas.width / 2, canvas.height); else ctx.fillRect(canvas.width / 2, 0, canvas.width / 2, canvas.height); } ctx.fillStyle = 'green'; ctx.fillRect(boss_boss.x, boss_boss.y, boss_boss.width, boss_boss.height); ctx.fillStyle = 'rgba(0, 255, 255, 0.7)'; boss_waterSplash.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill(); }); ctx.fillStyle = '#9c27b0'; boss_bossAttacks.forEach(a => { ctx.beginPath(); ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2); ctx.fill(); }); }
+function boss_drawBossMarioPattern() { 
+    ctx.fillStyle = '#a75934'; ctx.fillRect(0, 0, canvas.width, canvas.height); 
+    boss_bossMario_ground.forEach(g => { ctx.fillStyle = '#6d4c41'; ctx.fillRect(g.x, g.y, g.width, g.height); }); 
+    boss_bossMario_platforms.forEach(p => {
+        if (p.sprite && p.sprite.complete) {
+            ctx.drawImage(p.sprite, p.x, p.y, p.width, p.height);
+        } else {
+            ctx.fillStyle = '#8d6e63';
+            ctx.fillRect(p.x, p.y, p.width, p.height);
+        }
+    }); 
+    if (boss_areaAttackState.includes('telegraph')) { ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; if (boss_areaAttackState === 'telegraphLeft') ctx.fillRect(0, 0, canvas.width / 2, canvas.height); else ctx.fillRect(canvas.width / 2, 0, canvas.width / 2, canvas.height); } else if (boss_areaAttackState.includes('attack')) { ctx.fillStyle = 'rgba(255, 0, 0, 0.6)'; if (boss_areaAttackState === 'attackLeft') ctx.fillRect(0, 0, canvas.width / 2, canvas.height); else ctx.fillRect(canvas.width / 2, 0, canvas.width / 2, canvas.height); } ctx.fillStyle = 'green'; ctx.fillRect(boss_boss.x, boss_boss.y, boss_boss.width, boss_boss.height); ctx.fillStyle = 'rgba(0, 255, 255, 0.7)'; boss_waterSplash.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill(); }); ctx.fillStyle = '#9c27b0'; boss_bossAttacks.forEach(a => { ctx.beginPath(); ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2); ctx.fill(); }); 
+}
 function boss_drawBossSewerPattern() { ctx.fillStyle = '#333333'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.strokeStyle = '#212121'; ctx.lineWidth = 4; boss_bossSewer_lanes.forEach((yPos, i) => { if (i < 3) { const lineY = yPos + 75; ctx.beginPath(); ctx.moveTo(0, lineY); ctx.lineTo(canvas.width, lineY); ctx.stroke(); } }); boss_bossAttacks.forEach(attack => { if (attack.type === 'sewer_obstacle') { ctx.fillStyle = 'red'; ctx.fillRect(attack.x, attack.y, 40, 40); } else { ctx.fillStyle = 'lime'; ctx.beginPath(); ctx.arc(attack.x + 20, attack.y + 20, 20, 0, Math.PI * 2); ctx.fill(); } }); }
 
 // =========================================================================
@@ -371,18 +790,66 @@ function submitFeedback(text) {
 }
 
 const playerImage = new Image();
-const backgroundImage = new Image();
-playerImage.src = 'player.gif';
-backgroundImage.src = 'background.png';
+const marioBackgroundImage = new Image();
+const foregroundBridgeImage = new Image();
+
+const playerSprites = {
+    stand: [], run: [], jump: [], drone: [],
+    readyJump: new Image(),
+};
+const microbeSprites = [];
+const platformSprites = [];
+
+const imageSources = {
+    stand: ['player_stand1.png', 'player_stand2.png', 'player_stand3.png'],
+    run: ['player_run1.png', 'player_run2.png', 'player_run3.png'],
+    jump: ['player_jump1.png', 'player_jump2.png', 'player_jump3.png'],
+    readyJump: 'player_readyjump.png',
+    drone: ['dron1.png', 'dron2.png', 'dron3.png'],
+    microbe: ['microbe1.png', 'microbe2.png', 'microbe3.png', 'microbe4.png'],
+    platform: ['floor1.png', 'floor2.png', 'floor3.png']
+};
 
 let imagesLoaded = 0;
-const totalImages = 2;
+let imagesToLoad = 0; 
 function onImageLoad() {
     imagesLoaded++;
-    if (imagesLoaded === totalImages) {
+    if (imagesLoaded >= imagesToLoad) {
         initModeSelection();
         gameLoop();
     }
 }
-playerImage.onload = onImageLoad;
-backgroundImage.onload = onImageLoad;
+
+const allImagesToLoad = [
+    { obj: playerImage, src: 'player.gif'},
+    { obj: marioBackgroundImage, src: 'background1.png'},
+    { obj: foregroundBridgeImage, src: 'bridge1.png'},
+    { obj: playerSprites.readyJump, src: imageSources.readyJump}
+];
+
+for(const key in imageSources) {
+    if(key !== 'readyJump' && Array.isArray(imageSources[key])) {
+        let targetArray;
+        if (key === 'microbe') targetArray = microbeSprites;
+        else if (key === 'platform') targetArray = platformSprites;
+        else targetArray = playerSprites[key];
+
+        imageSources[key].forEach(src => {
+            const img = new Image();
+            targetArray.push(img);
+            allImagesToLoad.push({obj: img, src: src});
+        });
+    }
+}
+
+imagesToLoad = allImagesToLoad.length;
+if (imagesToLoad === 0) {
+    initModeSelection();
+    gameLoop();
+} else {
+    allImagesToLoad.forEach(item => {
+        item.obj.onload = onImageLoad;
+        item.obj.onerror = onImageLoad; 
+        item.obj.src = item.src;
+    });
+}
