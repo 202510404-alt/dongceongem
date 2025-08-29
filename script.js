@@ -7,7 +7,6 @@ const API_KEY = '$2a$10$7eC/WMxnHG69g8oVI1jBkOQWKu6jZF5eOtprIHYEcZx3RKq0veh4.';
 const BIN_ID = '68a95d74d0ea881f4061154b';
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
-
 let gameState = 'modeSelection';
 let controlMode = 'keyboard';
 
@@ -187,7 +186,7 @@ const hpUpgradeButton = { x: 50, y: 200, width: 250, height: 200 };
 const powerUpgradeButton = { x: 325, y: 200, width: 250, height: 200 };
 const ammoUpgradeButton = { x: 600, y: 200, width: 250, height: 200 };
 const backButton = { x: canvas.width / 2 - 100, y: 450, width: 200, height: 50 };
-const feedbackButton = { x: canvas.width - 220, y: canvas.height - 70, width: 200, height: 50 };
+const feedbackButton = { x: canvas.width - 220, y: 20, width: 200, height: 50 };
 
 function initModeSelection() { gameState = 'modeSelection'; }
 function updateModeSelection() {}
